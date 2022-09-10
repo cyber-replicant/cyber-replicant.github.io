@@ -5,7 +5,8 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const twoPi = Math.PI * 2;
 
-let camera, clock, scene, renderer;
+let camera, clock, scene, renderer, generalGroup;
+let pointerDown = false;
 
 const mouseCoords = new THREE.Vector2();
 
@@ -23,6 +24,54 @@ const margin = 0.05;
 
 const pos = new THREE.Vector3();
 const quat = new THREE.Quaternion();
+
+// Custom shapes for collision with the platforms
+const pointA = 0.0;
+const pointB = 9.0;
+const pointC = 6.5;
+
+const platformCollisionShapes = [
+    new Float32Array([
+        pointA, pointA,  pointA,
+        pointB, pointA,  pointA,
+        pointC, pointC,  pointA,
+    ]),
+    new Float32Array([
+        pointA, pointA,  pointA,
+        pointB, pointA,  pointA,
+        pointC, -pointC,  pointA,
+    ]),
+    new Float32Array([
+        pointA, pointA,  pointA,
+        pointA, pointB,  pointA,
+        pointC, pointC,  pointA,
+    ]),
+    new Float32Array([
+        pointA, pointA,  pointA,
+        pointA, pointB,  pointA,
+        -pointC, pointC,  pointA,
+    ]),
+    new Float32Array([
+        pointA, pointA,  pointA,
+        -pointB, pointA,  pointA,
+        -pointC, pointC,  pointA,
+    ]),
+    new Float32Array([
+        pointA, pointA,  pointA,
+        -pointB, pointA,  pointA,
+        -pointC, -pointC,  pointA,
+    ]),
+    new Float32Array([
+        pointA, pointA,  pointA,
+        pointA, -pointB,  pointA,
+        pointC, -pointC,  pointA,
+    ]),
+    new Float32Array([
+        pointA, pointA, pointA,
+        pointA, -pointB, pointA,
+        -pointC, -pointC, pointA,
+    ]),
+];
 
 
 let transformAux1;
@@ -69,7 +118,7 @@ function setupScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const orbit = new OrbitControls(camera, renderer.domElement);
+    // const orbit = new OrbitControls(camera, renderer.domElement);
     // orbit.enableZoom = false;
 
     setupLights(scene);
@@ -134,7 +183,7 @@ function setupLevel(scene) {
         side: THREE.DoubleSide,
     });
 
-    const generalGroup = new THREE.Group();
+    generalGroup = new THREE.Group();
     generalGroup.add(new THREE.Mesh(cylinderGeometry, meshMaterial));
     scene.add(generalGroup);
 
@@ -143,6 +192,11 @@ function setupLevel(scene) {
 
     // Ball
     setupBall(scene);
+
+    for (const vertices of platformCollisionShapes) {
+        let object = bloop(vertices, 0xEA00D9);
+        generalGroup.add(object);
+    }
 }
 
 
@@ -154,6 +208,41 @@ function createParalellepipedWithPhysics(sx, sy, sz, mass, pos, quat, material) 
 
     createRigidBody(object, shape, mass, pos, quat);
     return object;
+}
+
+function bloop(vertices, color) {
+
+    const geometry = new THREE.BufferGeometry();
+    // create a simple square shape. We duplicate the top left and bottom right
+    // vertices because each vertex needs to appear once per triangle.
+
+    // itemSize = 3 because there are 3 values (components) per vertex
+    geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+    const material = new THREE.MeshBasicMaterial( { color: color, side: THREE.DoubleSide } );
+    const mesh = new THREE.Mesh( geometry, material );
+
+    let pointA = new Ammo.btVector3(vertices[0][0], vertices[0][1], vertices[0][2]);
+    let pointB = new Ammo.btVector3(vertices[1][0], vertices[1][1], vertices[1][2]);
+    let pointC = new Ammo.btVector3(vertices[2][0], vertices[2][1], vertices[2][2]);
+    // pointA = pointA.rotate(Math.PI / 2);
+    // pointB = pointB.rotate(Math.PI / 2);
+    // pointC = pointC.rotate(Math.PI / 2);
+
+    const triangleMesh = new Ammo.btTriangleMesh();
+    triangleMesh.addTriangle(pointA, pointB, pointC, true);
+    triangleMesh.addTriangle(new Ammo.btVector3(0,0,0), new Ammo.btVector3(10,10,0), new Ammo.btVector3(10,0,0), true);
+    const shape = new Ammo.btBvhTriangleMeshShape(triangleMesh, true, true);
+    shape.setMargin(margin);
+
+    // pos.set(vertices[0][0], vertices[0][1], vertices[0][2]);
+    pos.set(0,0,0);
+    quat.set(Math.PI / 2, 0, 0, 1);
+    let body = createRigidBody(mesh, shape, 0, pos, quat);
+    body.setRestitution(1);
+
+    mesh.rotation.x = Math.PI / 2;
+    mesh.rotation.x = Math.PI / 2;
+    return mesh;
 }
 
 function setupPlatforms(scene) {
@@ -192,14 +281,14 @@ function setupPlatforms(scene) {
     });
 
     const object = new THREE.Mesh(cylinderGeometry, meshMaterial);
-    let body = createRigidBody(object, shape, mass, pos, quat);
-    body.setRestitution(0.1);
+    // let body = createRigidBody(object, shape, mass, pos, quat);
+    // body.setRestitution(0.5);
 
-    const platformGroup = new THREE.Group();
-    platformGroup.add(object);
+    // const platformGroup = new THREE.Group();
+    generalGroup.add(object);
     // platformGroup.rotation.x = Math.PI / 2;
 
-    scene.add(platformGroup);
+    // scene.add(platformGroup);
 }
 
 function setupBall(scene) {
@@ -234,17 +323,17 @@ function setupBall(scene) {
     const ballShape = new Ammo.btSphereShape(sphereData.radius);
     ballShape.setMargin(margin);
 
-    ball.position.x = 5;
-    ball.position.y = 5;
-
     ball.castShadow = true;
     ball.receiveShadow = true;
 
-    pos.set(5, 5, 0);
+    pos.set(5, 10, 0);
+    ball.position.x = pos.x;
+    ball.position.y = pos.y;
+
     quat.set(0, 0, 0, 1);
     const ballBody = createRigidBody(ball, ballShape, ballMass, pos, quat);
 
-    ballBody.setRestitution(10);
+    ballBody.setRestitution(1);
     // pos.copy( raycaster.ray.direction );
     // pos.add( raycaster.ray.origin );
 
@@ -336,7 +425,7 @@ function render() {
 function updatePhysics(deltaTime) {
 
     // Step world
-    physicsWorld.stepSimulation( deltaTime, 10 );
+    physicsWorld.stepSimulation(deltaTime, 10);
 
     // Update rigid bodies
     for (let i = 0, il = rigidBodies.length; i < il; i ++) {
@@ -346,7 +435,6 @@ function updatePhysics(deltaTime) {
         const ms = objPhys.getMotionState();
 
         if (ms) {
-
             ms.getWorldTransform(transformAux1);
             const p = transformAux1.getOrigin();
             const q = transformAux1.getRotation();
@@ -480,37 +568,56 @@ window.addEventListener('resize', function () {
 
 
 const raycaster = new THREE.Raycaster();
+let mouseX = 0, mouseY = 0;
 
-// window.addEventListener('pointerdown', function(event) {
+window.addEventListener('pointerdown', function(event) {
 
-//     mouseCoords.set(
-//         ( event.clientX / window.innerWidth ) * 2 - 1,
-//         - ( event.clientY / window.innerHeight ) * 2 + 1
-//     );
+    // mouseCoords.set(
+    //     ( event.clientX / window.innerWidth ) * 2 - 1,
+    //     - ( event.clientY / window.innerHeight ) * 2 + 1
+    // );
 
-//     raycaster.setFromCamera( mouseCoords, camera );
+    event.preventDefault();
 
-//     // Creates a ball and throws it
-//     const ballMass = 35;
-//     const ballRadius = 0.4;
+    pointerDown = true;
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+    return false;
+});
 
-//     const ballMaterial = new THREE.MeshPhongMaterial( { color: 0x202020 } );
-//     const ball = new THREE.Mesh( new THREE.SphereGeometry( ballRadius, 14, 10 ), ballMaterial );
-//     ball.castShadow = true;
-//     ball.receiveShadow = true;
-//     const ballShape = new Ammo.btSphereShape( ballRadius );
-//     ballShape.setMargin( margin );
-//     pos.copy( raycaster.ray.direction );
-//     pos.add( raycaster.ray.origin );
-//     quat.set( 0, 0, 0, 1 );
-//     const ballBody = createRigidBody( ball, ballShape, ballMass, pos, quat );
+window.addEventListener('pointerup', function(event) {
 
-//     pos.copy( raycaster.ray.direction );
-//     pos.multiplyScalar( 24 );
-//     ballBody.setLinearVelocity( new Ammo.btVector3( pos.x, pos.y, pos.z ) );
+    event.preventDefault();
 
-// } );
+    // mouseCoords.set(
+    //     ( event.clientX / window.innerWidth ) * 2 - 1,
+    //     - ( event.clientY / window.innerHeight ) * 2 + 1
+    // );
 
+    pointerDown = false;
+    return false;
+});
 
+window.addEventListener('pointermove', function(event) {
 
+    // mouseCoords.set(
+    //     ( event.clientX / window.innerWidth ) * 2 - 1,
+    //     - ( event.clientY / window.innerHeight ) * 2 + 1
+    // );
+
+    if (!pointerDown) {
+        return;
+    }
+
+    event.preventDefault();
+
+    let deltaX = event.clientX - mouseX;
+    let deltaY = event.clientY - mouseY;
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+
+    // generalGroup.rotation.x += deltaX / 100;
+    generalGroup.rotation.y -= deltaY / 50;
+    return false;
+});
 
