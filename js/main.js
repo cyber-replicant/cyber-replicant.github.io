@@ -108,7 +108,7 @@ function setupScene() {
     scene = new THREE.Scene();
     scene.background = new THREE.Color(0x444444);
 
-    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 100);
+    camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
     camera.position.y = 10;
     camera.position.x = 0;
     camera.position.z = 25;
@@ -158,7 +158,7 @@ function setupLevel(scene) {
     const data = {
         radiusTop: 3,
         radiusBottom: 3,
-        height: 50,
+        height: 200,
         radialSegments: 30,
         heightSegments: 1,
         openEnded: false,
@@ -174,7 +174,7 @@ function setupLevel(scene) {
         data.heightSegments,
         data.openEnded,
         data.thetaStart,
-        data.thetaLength
+        data.thetaLength,
     );
 
     const meshMaterial = new THREE.MeshPhongMaterial({
@@ -184,8 +184,12 @@ function setupLevel(scene) {
     });
 
     generalGroup = new THREE.Group();
-    generalGroup.add(new THREE.Mesh(cylinderGeometry, meshMaterial));
+    let cylinderObject = new THREE.Mesh(cylinderGeometry, meshMaterial);
+
+    generalGroup.add(cylinderObject);
     scene.add(generalGroup);
+
+    cylinderObject.position.y = -30;
 
     // Platforms
     setupPlatforms(scene);
@@ -247,6 +251,69 @@ function bloop(vertices, color) {
 
 function setupPlatforms(scene) {
 
+    const numPlatforms = 10;
+    const gapSize = -11;
+
+    for (let i = 0; i < numPlatforms; i++) {
+
+        generatePlatform(gapSize * i);
+    }
+
+    // object.rotation.y = Math.PI;
+    // const platformGroup = new THREE.Group();
+    // generalGroup.add(object);
+    // platformGroup.rotation.x = Math.PI / 2;
+
+    // scene.add(platformGroup);
+}
+
+function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
+function generatePlatform(platformY) {
+
+    let chunkSize = twoPi / 8;
+
+    const possibleRotations = [
+        0,
+        chunkSize,
+        chunkSize * 2,
+        chunkSize * 3,
+        chunkSize * 4,
+        chunkSize * 5,
+        chunkSize * 6,
+        chunkSize * 7,
+    ];
+
+    const maxChunksToRemove = 4;
+    let chunksToRemove = getRandomInt(3, 5);
+
+    while (chunksToRemove > 0) {
+
+        let randomIndex = getRandomInt(0,  possibleRotations.length);
+        possibleRotations.splice(randomIndex, 1);
+        chunksToRemove -= 1;
+    }
+
+    for (let rotationY of possibleRotations) {
+
+        let chunk = generatePieChunk();
+        generalGroup.add(chunk);
+        chunk.rotation.y = rotationY;
+        chunk.position.y = platformY;
+    }
+
+    // chunk = generatePieChunk();
+    // chunk.rotation.y = Math.PI;
+    // generalGroup.add(chunk);
+}
+
+function generatePieChunk() {
+
+    let color = generateRandomColor();
+    let emissive = generateRandomColor();
+
     const data = {
         radius: 9,
         height: 2,
@@ -254,7 +321,7 @@ function setupPlatforms(scene) {
         heightSegments: 1,
         openEnded: false,
         thetaStart: 0,
-        thetaLength: twoPi
+        thetaLength: twoPi / 8
     };
 
     const cylinderGeometry = new THREE.CylinderGeometry(
@@ -269,14 +336,18 @@ function setupPlatforms(scene) {
     );
 
     const mass = 0;
-    pos.set( 0, 0, 0 );
-    quat.set( 0, 0, 0, 1 );
-    const shape = new Ammo.btCylinderShape(new Ammo.btVector3(data.radius, data.height * 0.5, 50));
+    pos.set(0, 0, 0);
+    quat.set(0, 0, 0, 1);
+    const shape = new Ammo.btCylinderShape(
+        new Ammo.btVector3(data.radius, data.height * 0.5, 50)
+    );
     shape.setMargin(margin);
 
     const meshMaterial = new THREE.MeshPhongMaterial({
-        color: 0x133E7C,
-        emissive: 0x072534,
+        // color: 0x133E7C,
+        // emissive: 0x072534,
+        color: color,
+        emissive: emissive,
         side: THREE.DoubleSide
     });
 
@@ -284,11 +355,7 @@ function setupPlatforms(scene) {
     // let body = createRigidBody(object, shape, mass, pos, quat);
     // body.setRestitution(0.5);
 
-    // const platformGroup = new THREE.Group();
-    generalGroup.add(object);
-    // platformGroup.rotation.x = Math.PI / 2;
-
-    // scene.add(platformGroup);
+    return object;
 }
 
 function setupBall(scene) {
@@ -400,7 +467,7 @@ function createRigidBody(object, physicsShape, mass, pos, quat, vel, angVel) {
 
 }
 
-function createRandomColor() {
+function generateRandomColor() {
 
     return Math.floor(Math.random() * ( 1 << 24 ));
 }
@@ -617,7 +684,7 @@ window.addEventListener('pointermove', function(event) {
     mouseY = event.clientY;
 
     // generalGroup.rotation.x += deltaX / 100;
-    generalGroup.rotation.y -= deltaY / 50;
+    generalGroup.rotation.y -= deltaX / 50;
     return false;
 });
 
