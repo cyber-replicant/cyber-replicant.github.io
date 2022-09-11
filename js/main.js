@@ -26,52 +26,52 @@ const pos = new THREE.Vector3();
 const quat = new THREE.Quaternion();
 
 // Custom shapes for collision with the platforms
-const pointA = 0.0;
-const pointB = 9.0;
-const pointC = 6.5;
+// const pointA = 0.0;
+// const pointB = 9.0;
+// const pointC = 6.5;
 
-const platformCollisionShapes = [
-    new Float32Array([
-        pointA, pointA,  pointA,
-        pointB, pointA,  pointA,
-        pointC, pointC,  pointA,
-    ]),
-    new Float32Array([
-        pointA, pointA,  pointA,
-        pointB, pointA,  pointA,
-        pointC, -pointC,  pointA,
-    ]),
-    new Float32Array([
-        pointA, pointA,  pointA,
-        pointA, pointB,  pointA,
-        pointC, pointC,  pointA,
-    ]),
-    new Float32Array([
-        pointA, pointA,  pointA,
-        pointA, pointB,  pointA,
-        -pointC, pointC,  pointA,
-    ]),
-    new Float32Array([
-        pointA, pointA,  pointA,
-        -pointB, pointA,  pointA,
-        -pointC, pointC,  pointA,
-    ]),
-    new Float32Array([
-        pointA, pointA,  pointA,
-        -pointB, pointA,  pointA,
-        -pointC, -pointC,  pointA,
-    ]),
-    new Float32Array([
-        pointA, pointA,  pointA,
-        pointA, -pointB,  pointA,
-        pointC, -pointC,  pointA,
-    ]),
-    new Float32Array([
-        pointA, pointA, pointA,
-        pointA, -pointB, pointA,
-        -pointC, -pointC, pointA,
-    ]),
-];
+// const platformCollisionShapes = [
+//     new Float32Array([
+//         pointA, pointA,  pointA,
+//         pointB, pointA,  pointA,
+//         pointC, pointC,  pointA,
+//     ]),
+//     new Float32Array([
+//         pointA, pointA,  pointA,
+//         pointB, pointA,  pointA,
+//         pointC, -pointC,  pointA,
+//     ]),
+//     new Float32Array([
+//         pointA, pointA,  pointA,
+//         pointA, pointB,  pointA,
+//         pointC, pointC,  pointA,
+//     ]),
+//     new Float32Array([
+//         pointA, pointA,  pointA,
+//         pointA, pointB,  pointA,
+//         -pointC, pointC,  pointA,
+//     ]),
+//     new Float32Array([
+//         pointA, pointA,  pointA,
+//         -pointB, pointA,  pointA,
+//         -pointC, pointC,  pointA,
+//     ]),
+//     new Float32Array([
+//         pointA, pointA,  pointA,
+//         -pointB, pointA,  pointA,
+//         -pointC, -pointC,  pointA,
+//     ]),
+//     new Float32Array([
+//         pointA, pointA,  pointA,
+//         pointA, -pointB,  pointA,
+//         pointC, -pointC,  pointA,
+//     ]),
+//     new Float32Array([
+//         pointA, pointA, pointA,
+//         pointA, -pointB, pointA,
+//         -pointC, -pointC, pointA,
+//     ]),
+// ];
 
 
 let transformAux1;
@@ -118,7 +118,7 @@ function setupScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // const orbit = new OrbitControls(camera, renderer.domElement);
+    const orbit = new OrbitControls(camera, renderer.domElement);
     // orbit.enableZoom = false;
 
     setupLights(scene);
@@ -197,10 +197,10 @@ function setupLevel(scene) {
     // Ball
     setupBall(scene);
 
-    for (const vertices of platformCollisionShapes) {
-        let object = bloop(vertices, 0xEA00D9);
-        generalGroup.add(object);
-    }
+    // for (const vertices of platformCollisionShapes) {
+    //     let object = bloop(vertices, 0xEA00D9);
+    //     generalGroup.add(object);
+    // }
 }
 
 
@@ -212,6 +212,66 @@ function createParalellepipedWithPhysics(sx, sy, sz, mass, pos, quat, material) 
 
     createRigidBody(object, shape, mass, pos, quat);
     return object;
+}
+
+function setupPlatforms(scene) {
+
+    const numPlatforms = 10;
+    const gapSize = -11;
+
+    for (let i = 0; i < numPlatforms; i++) {
+
+        generatePlatform(gapSize * i);
+    }
+
+    // object.rotation.y = Math.PI;
+    // const platformGroup = new THREE.Group();
+    // generalGroup.add(object);
+    // platformGroup.rotation.x = Math.PI / 2;
+
+    // scene.add(platformGroup);
+}
+
+function getRandomInt(min, max) {
+    return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
+function generatePlatform(platformY) {
+
+    let chunkSize = twoPi / 8;
+
+    const possibleRotations = [
+        0,
+        chunkSize,
+        // chunkSize * 2,
+        // chunkSize * 3,
+        // chunkSize * 4,
+        // chunkSize * 5,
+        // chunkSize * 6,
+        // chunkSize * 7,
+    ];
+
+    // const maxChunksToRemove = 4;
+    // let chunksToRemove = getRandomInt(3, 5);
+
+    // while (chunksToRemove > 0) {
+
+    //     let randomIndex = getRandomInt(0,  possibleRotations.length);
+    //     possibleRotations.splice(randomIndex, 1);
+    //     chunksToRemove -= 1;
+    // }
+
+    for (let rotationY of possibleRotations) {
+
+        let chunk = generatePieChunk();
+        // generalGroup.add(chunk);
+        // chunk.rotation.y = rotationY;
+        // chunk.position.y = platformY;
+    }
+
+    // chunk = generatePieChunk();
+    // chunk.rotation.y = Math.PI;
+    // generalGroup.add(chunk);
 }
 
 function bloop(vertices, color) {
@@ -245,68 +305,7 @@ function bloop(vertices, color) {
     body.setRestitution(1);
 
     mesh.rotation.x = Math.PI / 2;
-    mesh.rotation.x = Math.PI / 2;
     return mesh;
-}
-
-function setupPlatforms(scene) {
-
-    const numPlatforms = 10;
-    const gapSize = -11;
-
-    for (let i = 0; i < numPlatforms; i++) {
-
-        generatePlatform(gapSize * i);
-    }
-
-    // object.rotation.y = Math.PI;
-    // const platformGroup = new THREE.Group();
-    // generalGroup.add(object);
-    // platformGroup.rotation.x = Math.PI / 2;
-
-    // scene.add(platformGroup);
-}
-
-function getRandomInt(min, max) {
-    return Math.floor(Math.random() * (max - min + 1) + min);
-}
-
-function generatePlatform(platformY) {
-
-    let chunkSize = twoPi / 8;
-
-    const possibleRotations = [
-        0,
-        chunkSize,
-        chunkSize * 2,
-        chunkSize * 3,
-        chunkSize * 4,
-        chunkSize * 5,
-        chunkSize * 6,
-        chunkSize * 7,
-    ];
-
-    const maxChunksToRemove = 4;
-    let chunksToRemove = getRandomInt(3, 5);
-
-    while (chunksToRemove > 0) {
-
-        let randomIndex = getRandomInt(0,  possibleRotations.length);
-        possibleRotations.splice(randomIndex, 1);
-        chunksToRemove -= 1;
-    }
-
-    for (let rotationY of possibleRotations) {
-
-        let chunk = generatePieChunk();
-        generalGroup.add(chunk);
-        chunk.rotation.y = rotationY;
-        chunk.position.y = platformY;
-    }
-
-    // chunk = generatePieChunk();
-    // chunk.rotation.y = Math.PI;
-    // generalGroup.add(chunk);
 }
 
 function generatePieChunk() {
@@ -337,10 +336,59 @@ function generatePieChunk() {
 
     const mass = 0;
     pos.set(0, 0, 0);
-    quat.set(0, 0, 0, 1);
-    const shape = new Ammo.btCylinderShape(
-        new Ammo.btVector3(data.radius, data.height * 0.5, 50)
-    );
+    quat.set(Math.PI / 2, 0, 0, 1);
+    // const shape = new Ammo.btCylinderShape(
+    //     new Ammo.btVector3(data.radius, data.height * 0.5, 50)
+    // );
+    // shape.setMargin(margin);
+
+    // Custom shapes for collision with the platforms
+    const pointA = 0.0;
+    const pointB = 9.0;
+    const pointC = 6.5;
+
+    const shapeSize = 3.0;
+
+    const platformCollisionPoints = new Float32Array([
+        pointA, pointA,  pointA,
+        pointB, pointA,  pointA,
+        pointC, pointC,  pointA,
+
+        pointA, pointA,  pointA + shapeSize,
+        pointB, pointA,  pointA + shapeSize,
+        pointC, pointC,  pointA + shapeSize,
+
+        pointB, pointA,  pointA,
+        pointB, pointA,  pointA + shapeSize,
+        pointC, pointC,  pointA + shapeSize,
+
+        pointC, pointC,  pointA,
+        pointC, pointC,  pointA + shapeSize,
+        pointB, pointA,  pointA,
+    ]);
+
+    const geometry = new THREE.BufferGeometry();
+    // create a simple square shape. We duplicate the top left and bottom right
+    // vertices because each vertex needs to appear once per triangle.
+
+    geometry.setAttribute('position', new THREE.BufferAttribute(platformCollisionPoints, 3));
+    const material = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide });
+    const mesh = new THREE.Mesh(geometry, material);
+    mesh.rotation.x = Math.PI / 2;
+    generalGroup.add(mesh);
+
+    // let pointA = new Ammo.btVector3(vertices[0][0], vertices[0][1], vertices[0][2]);
+    // let pointB = new Ammo.btVector3(vertices[1][0], vertices[1][1], vertices[1][2]);
+    // let pointC = new Ammo.btVector3(vertices[2][0], vertices[2][1], vertices[2][2]);
+    // pointA = pointA.rotate(Math.PI / 2);
+    // pointB = pointB.rotate(Math.PI / 2);
+    // pointC = pointC.rotate(Math.PI / 2);
+
+    const triangleMesh = new Ammo.btTriangleMesh();
+
+    triangleMesh.addTriangle(pointA, pointB, pointC, true);
+    // triangleMesh.addTriangle(.btVector3(10,0,0), true);
+    const shape = new Ammo.btBvhTriangleMeshShape(triangleMesh, true, true);
     shape.setMargin(margin);
 
     const meshMaterial = new THREE.MeshPhongMaterial({
