@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const twoPi = Math.PI * 2;
 
-let camera, clock, scene, renderer, generalGroup, ballGroup, ball;
+let camera, clock, scene, renderer, generalGroup, ballGroup, ball, boop;
 let pointerDown = false;
 let platforms = [];
 
@@ -22,6 +22,8 @@ let broadphase;
 let solver;
 let physicsWorld;
 const margin = 0.05;
+
+let armMovement = 1;
 
 const pos = new THREE.Vector3();
 const quat = new THREE.Quaternion();
@@ -62,8 +64,8 @@ function setupScene() {
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
     camera.position.y = 10;
-    camera.position.x = 0;
-    camera.position.z = 25;
+    camera.position.x = 5;
+    camera.position.z = 12;
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -152,12 +154,13 @@ function setupLevel(scene) {
 
     let cylinderObject = new THREE.Mesh(cylinderGeometry, meshMaterial);
 
-    generalGroup.add(cylinderObject);
+    // generalGroup.add(cylinderObject);
     scene.add(generalGroup);
 
     cylinderObject.position.y = -30;
 
     // Platforms
+    setupHinge();
     setupPlatforms(scene);
 
     // Ball
@@ -167,20 +170,6 @@ function setupLevel(scene) {
     //     let object = bloop(vertices, 0xEA00D9);
     //     generalGroup.add(object);
     // }
-}
-
-
-function createParalellepipedWithPhysics(sx, sy, sz, mass, pos, quat, material) {
-
-    const object = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz, 1, 1, 1 ), material);
-    const shape = new Ammo.btBoxShape(new Ammo.btVector3(sx * 0.5, sy * 0.5, sz * 0.5 ));
-    shape.setMargin(margin);
-
-    generalGroup.add(object);
-    let body = createRigidBody(object, shape, mass, pos, quat);
-    body.setRestitution(1);
-    platforms.push(body);
-    return object;
 }
 
 function setupPlatforms(scene) {
@@ -204,6 +193,44 @@ function setupPlatforms(scene) {
 
 function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1) + min);
+}
+
+let hinge, arm;
+
+function setupHinge() {
+
+    // The base
+    const ropePos = new THREE.Vector3( - 3, 2, 0 );
+    const ropeLength = 4;
+    const armMass = 2;
+    const armLength = 3;
+    const pylonHeight = ropePos.y + ropeLength;
+    const baseMaterial = new THREE.MeshPhongMaterial( { color: 0x606060 } );
+    pos.set( ropePos.x, 0.1, ropePos.z - armLength ) ;
+    quat.set( 0, 0, 0, 1 );
+    const base = createParalellepipedWithPhysics( 1, 0.2, 1, 0, pos, quat, baseMaterial );
+    base.castShadow = true;
+    base.receiveShadow = true;
+    pos.set( ropePos.x, 0.5 * pylonHeight, ropePos.z - armLength );
+    const pylon = createParalellepipedWithPhysics( 0.4, pylonHeight, 0.4, 0, pos, quat, baseMaterial );
+    pylon.castShadow = true;
+    pylon.receiveShadow = true;
+    pos.set( ropePos.x, pylonHeight + 0.2, ropePos.z - 0.5 * armLength );
+    arm = createParalellepipedWithPhysics( 0.4, 0.4, armLength + 0.4, armMass, pos, quat, baseMaterial );
+    arm.castShadow = true;
+    arm.receiveShadow = true;       
+
+    // Glue the rope extremes to the ball and the arm
+    // const influence = 1;
+    // ropeSoftBody.appendAnchor( 0, ball.userData.physicsBody, true, influence );
+    // ropeSoftBody.appendAnchor( ropeNumSegments, arm.userData.physicsBody, true, influence );
+
+    // Hinge constraint to move the arm
+    const pivotA = new Ammo.btVector3( 0, pylonHeight * 0.5, 0 );
+    const pivotB = new Ammo.btVector3( 0, - 0.2, - armLength * 0.5 );
+    const axis = new Ammo.btVector3( 0, 1, 0 );
+    hinge = new Ammo.btHingeConstraint( pylon.userData.physicsBody, arm.userData.physicsBody, pivotA, pivotB, axis, axis, true );
+    physicsWorld.addConstraint( hinge, true );
 }
 
 function generatePlatform(platformY) {
@@ -249,10 +276,18 @@ function generatePlatform(platformY) {
         // chunk.rotation.y = rotationY;
         // chunk.position.y = platformY;
         pos.copy(position);
+        quat.set(0,0,0,1);
         // pos.set(5, -5, 0);
-        quat.set(0.383, 0, 0.383, 0.924);
+        // quat.set(0.383, 0, 0.383, 0.924);
 
-        let boop = createParalellepipedWithPhysics(
+        // rx, ry and rz are target radians
+        var euler = new THREE.Euler(Math.PI / 2,0,0);
+        // var quaternion = new THREE.Quaternion();
+        quat.setFromEuler(euler);
+        quat.setFromAxisAngle(new THREE.Vector3(1,0,0), Math.PI / 2);
+        // object.rotation.setFromQuaternion(quaternion);
+
+        boop = createParalellepipedWithPhysics(
             5, 1, 5, 0, pos, quat, new THREE.MeshPhongMaterial({ color: 0xFFFFFF } )
         );
         // platforms.push(boop);
@@ -263,39 +298,70 @@ function generatePlatform(platformY) {
     // generalGroup.add(chunk);
 }
 
-function bloop(vertices, color) {
+function createParalellepipedWithPhysics(sx, sy, sz, mass, pos, quat, material) {
 
-    const geometry = new THREE.BufferGeometry();
-    // create a simple square shape. We duplicate the top left and bottom right
-    // vertices because each vertex needs to appear once per triangle.
-
-    // itemSize = 3 because there are 3 values (components) per vertex
-    geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
-    const material = new THREE.MeshBasicMaterial( { color: color, side: THREE.DoubleSide } );
-    const mesh = new THREE.Mesh( geometry, material );
-
-    let pointA = new Ammo.btVector3(vertices[0][0], vertices[0][1], vertices[0][2]);
-    let pointB = new Ammo.btVector3(vertices[1][0], vertices[1][1], vertices[1][2]);
-    let pointC = new Ammo.btVector3(vertices[2][0], vertices[2][1], vertices[2][2]);
-    // pointA = pointA.rotate(Math.PI / 2);
-    // pointB = pointB.rotate(Math.PI / 2);
-    // pointC = pointC.rotate(Math.PI / 2);
-
-    const triangleMesh = new Ammo.btTriangleMesh();
-    triangleMesh.addTriangle(pointA, pointB, pointC, true);
-    triangleMesh.addTriangle(new Ammo.btVector3(0,0,0), new Ammo.btVector3(10,10,0), new Ammo.btVector3(10,0,0), true);
-    const shape = new Ammo.btBvhTriangleMeshShape(triangleMesh, true, true);
+    const object = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz, 1, 1, 1 ), material);
+    const shape = new Ammo.btBoxShape(new Ammo.btVector3(sx * 0.5, sy * 0.5, sz * 0.5 ));
     shape.setMargin(margin);
 
-    // pos.set(vertices[0][0], vertices[0][1], vertices[0][2]);
-    pos.set(0,0,0);
-    quat.set(Math.PI / 2, 0, 0, 1);
-    let body = createRigidBody(mesh, shape, 0, pos, quat);
+    generalGroup.add(object);
+    let body = createRigidBody(object, shape, mass, pos, new THREE.Quaternion(0,0,0,1));
     body.setRestitution(1);
+    platforms.push(body);
 
-    mesh.rotation.x = Math.PI / 2;
-    return mesh;
+    // const ms = platform.getMotionState();
+    setObjectRotation(object, quat);
+
+    // q = transform.getRotation();
+    // // quat.set(1, q.x(), generalGroup.rotation.y, q.z());
+    // console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
+
+    return object;
 }
+
+function setObjectRotation(object, q) {
+
+    let body = object.userData.physicsBody;
+
+    const transform = body.getWorldTransform();
+    transform.setRotation(new Ammo.btQuaternion(q.x, q.y, q.z, q.w));
+    body.setWorldTransform(transform);
+    object.quaternion.copy(q);
+}
+
+// function bloop(vertices, color) {
+
+//     const geometry = new THREE.BufferGeometry();
+//     // create a simple square shape. We duplicate the top left and bottom right
+//     // vertices because each vertex needs to appear once per triangle.
+
+//     // itemSize = 3 because there are 3 values (components) per vertex
+//     geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+//     const material = new THREE.MeshBasicMaterial( { color: color, side: THREE.DoubleSide } );
+//     const mesh = new THREE.Mesh( geometry, material );
+
+//     let pointA = new Ammo.btVector3(vertices[0][0], vertices[0][1], vertices[0][2]);
+//     let pointB = new Ammo.btVector3(vertices[1][0], vertices[1][1], vertices[1][2]);
+//     let pointC = new Ammo.btVector3(vertices[2][0], vertices[2][1], vertices[2][2]);
+//     // pointA = pointA.rotate(Math.PI / 2);
+//     // pointB = pointB.rotate(Math.PI / 2);
+//     // pointC = pointC.rotate(Math.PI / 2);
+
+//     const triangleMesh = new Ammo.btTriangleMesh();
+//     triangleMesh.addTriangle(pointA, pointB, pointC, true);
+//     triangleMesh.addTriangle(new Ammo.btVector3(0,0,0), new Ammo.btVector3(10,10,0), new Ammo.btVector3(10,0,0), true);
+//     const shape = new Ammo.btBvhTriangleMeshShape(triangleMesh, true, true);
+//     shape.setMargin(margin);
+
+//     // pos.set(vertices[0][0], vertices[0][1], vertices[0][2]);
+//     pos.set(0,0,0);
+//     quat.set(Math.PI / 2, 0, 0, 1);
+//     let body = createRigidBody(mesh, shape, 0, pos, quat);
+//     body.setRestitution(1);
+
+//     mesh.rotation.x = Math.PI / 2;
+//     return mesh;
+// }
 
 function generatePieChunk(rotationY) {
 
@@ -566,6 +632,9 @@ function render() {
 
 function updatePhysics(deltaTime) {
 
+    // Hinge control
+    hinge.enableAngularMotor( true, 1.5 * armMovement, 50 );
+
     // Step world
     physicsWorld.stepSimulation(deltaTime, 10);
 
@@ -666,48 +735,53 @@ window.addEventListener('pointerup', function(event) {
     return false;
 });
 
-window.addEventListener('pointermove', function(event) {
+// window.addEventListener('pointermove', function(event) {
 
-    // mouseCoords.set(
-    //     ( event.clientX / window.innerWidth ) * 2 - 1,
-    //     - ( event.clientY / window.innerHeight ) * 2 + 1
-    // );
+//     // mouseCoords.set(
+//     //     ( event.clientX / window.innerWidth ) * 2 - 1,
+//     //     - ( event.clientY / window.innerHeight ) * 2 + 1
+//     // );
 
-    if (!pointerDown) {
-        return;
-    }
+//     if (!pointerDown) {
+//         return;
+//     }
 
-    event.preventDefault();
+//     event.preventDefault();
 
-    let deltaX = event.clientX - mouseX;
-    let deltaY = event.clientY - mouseY;
-    mouseX = event.clientX;
-    mouseY = event.clientY;
+//     let deltaX = event.clientX - mouseX;
+//     let deltaY = event.clientY - mouseY;
+//     mouseX = event.clientX;
+//     mouseY = event.clientY;
 
-    // generalGroup.rotation.x += deltaX / 100;
-    // generalGroup.rotation.y -= deltaX / 50;
-    // ballGroup.rotation.y -= deltaX / 50;
+//     // generalGroup.rotation.x += deltaX / 100;
+//     boop.rotation.y -= deltaX / 50;
+//     // console.log(boop.rotation);
+//     // console.log(boop.quaternion);
+//     setObjectRotation(boop, boop.quaternion);
+//     // ballGroup.rotation.y -= deltaX / 50;
 
-    const transform = ball.userData.physicsBody.getCenterOfMassTransform();
-    let q = transform.getRotation();
-    console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
+//     // const transform = ball.userData.physicsBody.getCenterOfMassTransform();
+//     // let q = transform.getRotation();
+//     // console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
 
-    quat.set(q.x(), q.y() - deltaX / 50, q.z(), 1);
-    transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
-    ball.userData.physicsBody.setCenterOfMassTransform(transform);
+//     // var euler = new THREE.Euler(generalGroup.rotation.x,generalGroup.rotation.y,generalGroup.rotation.z);
+//     // quat.setFromEuler(euler);
+//     // // quat.set(q.x(), q.y() - deltaX / 50, q.z(), 1);
+//     // transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+//     // ball.userData.physicsBody.setCenterOfMassTransform(transform);
 
-    // for (const platform of platforms) {
-    //     // const ms = platform.getMotionState();
-    //     const transform = platform.getWorldTransform();
-    //     let q = transform.getRotation();
-    //     quat.set(1, q.x(), generalGroup.rotation.y, q.z());
-    //     console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
-    //     transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
-    //     platform.setWorldTransform(transform);
-    // }
+//     // for (const platform of platforms) {
+//     //     // const ms = platform.getMotionState();
+//     //     const transform = platform.getWorldTransform();
+//     //     let q = transform.getRotation();
+//     //     quat.set(1, q.x(), generalGroup.rotation.y, q.z());
+//     //     console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
+//     //     transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+//     //     platform.setWorldTransform(transform);
+//     // }
 
-    return false;
-});
+//     return false;
+// });
 
 // window.addEventListener( 'pointerdown', function ( event ) {
 
@@ -744,3 +818,28 @@ window.addEventListener('pointermove', function(event) {
 //     ballBody.setLinearVelocity( new Ammo.btVector3( pos.x, pos.y, pos.z ) );
 
 // } );
+
+window.addEventListener( 'keydown', function ( event ) {
+
+    switch ( event.keyCode ) {
+        // D
+        case 68:
+            armMovement = 1;
+            arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,1,0));
+            break;
+        // A
+        case 65:
+            armMovement = - 1;
+            arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,-1,0));
+            // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
+            break;
+    }
+
+} );
+
+window.addEventListener( 'keyup', function () {
+
+    // armMovement = 0;
+    arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
+
+} );
