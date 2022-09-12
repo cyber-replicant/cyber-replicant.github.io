@@ -26,55 +26,6 @@ const margin = 0.05;
 const pos = new THREE.Vector3();
 const quat = new THREE.Quaternion();
 
-// Custom shapes for collision with the platforms
-// const pointA = 0.0;
-// const pointB = 9.0;
-// const pointC = 6.5;
-
-// const platformCollisionShapes = [
-//     new Float32Array([
-//         pointA, pointA,  pointA,
-//         pointB, pointA,  pointA,
-//         pointC, pointC,  pointA,
-//     ]),
-//     new Float32Array([
-//         pointA, pointA,  pointA,
-//         pointB, pointA,  pointA,
-//         pointC, -pointC,  pointA,
-//     ]),
-//     new Float32Array([
-//         pointA, pointA,  pointA,
-//         pointA, pointB,  pointA,
-//         pointC, pointC,  pointA,
-//     ]),
-//     new Float32Array([
-//         pointA, pointA,  pointA,
-//         pointA, pointB,  pointA,
-//         -pointC, pointC,  pointA,
-//     ]),
-//     new Float32Array([
-//         pointA, pointA,  pointA,
-//         -pointB, pointA,  pointA,
-//         -pointC, pointC,  pointA,
-//     ]),
-//     new Float32Array([
-//         pointA, pointA,  pointA,
-//         -pointB, pointA,  pointA,
-//         -pointC, -pointC,  pointA,
-//     ]),
-//     new Float32Array([
-//         pointA, pointA,  pointA,
-//         pointA, -pointB,  pointA,
-//         pointC, -pointC,  pointA,
-//     ]),
-//     new Float32Array([
-//         pointA, pointA, pointA,
-//         pointA, -pointB, pointA,
-//         -pointC, -pointC, pointA,
-//     ]),
-// ];
-
-
 let transformAux1;
 let tempBtVec3_1;
 
@@ -119,7 +70,7 @@ function setupScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // const orbit = new OrbitControls(camera, renderer.domElement);
+    const orbit = new OrbitControls(camera, renderer.domElement);
     // orbit.enableZoom = false;
 
     setupLights(scene);
@@ -187,7 +138,7 @@ function setupLevel(scene) {
     generalGroup = new THREE.Group();
     let cylinderObject = new THREE.Mesh(cylinderGeometry, meshMaterial);
 
-    generalGroup.add(cylinderObject);
+    // generalGroup.add(cylinderObject);
     scene.add(generalGroup);
 
     cylinderObject.position.y = -30;
@@ -220,10 +171,11 @@ function setupPlatforms(scene) {
     const numPlatforms = 10;
     const gapSize = -11;
 
-    for (let i = 0; i < numPlatforms; i++) {
+    // for (let i = 0; i < numPlatforms; i++) {
 
-        generatePlatform(gapSize * i);
-    }
+    let i = 0;
+    generatePlatform(gapSize * i);
+    // }
 
     // object.rotation.y = Math.PI;
     // const platformGroup = new THREE.Group();
@@ -275,39 +227,39 @@ function generatePlatform(platformY) {
     // generalGroup.add(chunk);
 }
 
-// function bloop(vertices, color) {
+function bloop(vertices, color) {
 
-//     const geometry = new THREE.BufferGeometry();
-//     // create a simple square shape. We duplicate the top left and bottom right
-//     // vertices because each vertex needs to appear once per triangle.
+    const geometry = new THREE.BufferGeometry();
+    // create a simple square shape. We duplicate the top left and bottom right
+    // vertices because each vertex needs to appear once per triangle.
 
-//     // itemSize = 3 because there are 3 values (components) per vertex
-//     geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
-//     const material = new THREE.MeshBasicMaterial( { color: color, side: THREE.DoubleSide } );
-//     const mesh = new THREE.Mesh( geometry, material );
+    // itemSize = 3 because there are 3 values (components) per vertex
+    geometry.setAttribute( 'position', new THREE.BufferAttribute( vertices, 3 ) );
+    const material = new THREE.MeshBasicMaterial( { color: color, side: THREE.DoubleSide } );
+    const mesh = new THREE.Mesh( geometry, material );
 
-//     let pointA = new Ammo.btVector3(vertices[0][0], vertices[0][1], vertices[0][2]);
-//     let pointB = new Ammo.btVector3(vertices[1][0], vertices[1][1], vertices[1][2]);
-//     let pointC = new Ammo.btVector3(vertices[2][0], vertices[2][1], vertices[2][2]);
-//     // pointA = pointA.rotate(Math.PI / 2);
-//     // pointB = pointB.rotate(Math.PI / 2);
-//     // pointC = pointC.rotate(Math.PI / 2);
+    let pointA = new Ammo.btVector3(vertices[0][0], vertices[0][1], vertices[0][2]);
+    let pointB = new Ammo.btVector3(vertices[1][0], vertices[1][1], vertices[1][2]);
+    let pointC = new Ammo.btVector3(vertices[2][0], vertices[2][1], vertices[2][2]);
+    // pointA = pointA.rotate(Math.PI / 2);
+    // pointB = pointB.rotate(Math.PI / 2);
+    // pointC = pointC.rotate(Math.PI / 2);
 
-//     const triangleMesh = new Ammo.btTriangleMesh();
-//     triangleMesh.addTriangle(pointA, pointB, pointC, true);
-//     triangleMesh.addTriangle(new Ammo.btVector3(0,0,0), new Ammo.btVector3(10,10,0), new Ammo.btVector3(10,0,0), true);
-//     const shape = new Ammo.btBvhTriangleMeshShape(triangleMesh, true, true);
-//     shape.setMargin(margin);
+    const triangleMesh = new Ammo.btTriangleMesh();
+    triangleMesh.addTriangle(pointA, pointB, pointC, true);
+    triangleMesh.addTriangle(new Ammo.btVector3(0,0,0), new Ammo.btVector3(10,10,0), new Ammo.btVector3(10,0,0), true);
+    const shape = new Ammo.btBvhTriangleMeshShape(triangleMesh, true, true);
+    shape.setMargin(margin);
 
-//     // pos.set(vertices[0][0], vertices[0][1], vertices[0][2]);
-//     pos.set(0,0,0);
-//     quat.set(Math.PI / 2, 0, 0, 1);
-//     let body = createRigidBody(mesh, shape, 0, pos, quat);
-//     body.setRestitution(1);
+    // pos.set(vertices[0][0], vertices[0][1], vertices[0][2]);
+    pos.set(0,0,0);
+    quat.set(Math.PI / 2, 0, 0, 1);
+    let body = createRigidBody(mesh, shape, 0, pos, quat);
+    body.setRestitution(1);
 
-//     mesh.rotation.x = Math.PI / 2;
-//     return mesh;
-// }
+    mesh.rotation.x = Math.PI / 2;
+    return mesh;
+}
 
 function generatePieChunk() {
 
@@ -362,6 +314,22 @@ function generatePieChunk() {
         pointC, pointC,  pointA,
         pointC, pointC,  pointD,
         pointB, pointA,  pointA,
+
+        pointA, pointA,  pointA,
+        pointB, pointA,  pointA,
+        pointA, pointA,  pointD,
+
+        pointA, pointA,  pointD,
+        pointB, pointA,  pointD,
+        pointB, pointA,  pointA,
+
+        pointA, pointA,  pointA,
+        pointC, pointC,  pointA,
+        pointA, pointA,  pointD,
+
+        pointA, pointA,  pointD,
+        pointC, pointC,  pointD,
+        pointC, pointC,  pointA,
     ]);
 
     const geometry = new THREE.BufferGeometry();
@@ -371,23 +339,26 @@ function generatePieChunk() {
     geometry.setAttribute('position', new THREE.BufferAttribute(collisionPoints, 3));
     const material = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide });
     const mesh = new THREE.Mesh(geometry, material);
-    mesh.rotation.x = Math.PI / 2;
+    // mesh.rotation.x = Math.PI / 2;
+    // mesh.quaternion.x = 0.5;
+    mesh.quaternion.setFromAxisAngle( new THREE.Vector3( 1, 0, 0 ), Math.PI / 2 );
+    // console.log(mesh.quaternion);
     generalGroup.add(mesh);
 
     const triangleMesh = new Ammo.btTriangleMesh();
     const numTriangles = collisionPoints.length / 3 / 3;
 
-    // for (let i = 0; i < numTriangles; i++) {
+    for (let i = 0; i < numTriangles; i++) {
 
-    let pointOne = new Ammo.btVector3(collisionPoints[0], collisionPoints[1], collisionPoints[2]);
-    let pointTwo = new Ammo.btVector3(collisionPoints[3], collisionPoints[4], collisionPoints[5]);
-    let pointThree = new Ammo.btVector3(collisionPoints[6], collisionPoints[7], collisionPoints[8]);
+        let pointOne = new Ammo.btVector3(collisionPoints[i], collisionPoints[i+1], collisionPoints[i+2]);
+        let pointTwo = new Ammo.btVector3(collisionPoints[i+3], collisionPoints[i+4], collisionPoints[i+5]);
+        let pointThree = new Ammo.btVector3(collisionPoints[i+6], collisionPoints[i+7], collisionPoints[i+8]);
 
-    triangleMesh.addTriangle(pointOne, pointTwo, pointThree, true);
-    // }
+        triangleMesh.addTriangle(pointOne, pointTwo, pointThree);
+    }
 
     const shape = new Ammo.btBvhTriangleMeshShape(triangleMesh, true, true);
-    shape.setMargin(margin);
+    shape.setMargin(0);
 
     const meshMaterial = new THREE.MeshPhongMaterial({
         // color: 0x133E7C,
@@ -398,16 +369,18 @@ function generatePieChunk() {
     });
 
     const object = new THREE.Mesh(cylinderGeometry, meshMaterial);
+    generalGroup.add(object);
 
     const mass = 0;
-    pos.set(0, 0, 0);
-    // quat.set(0, 0, 0, 1);
-    quat.set(Math.PI / 2, 0, 0, 1);
+    pos.set(object.position.x, object.position.y, object.position.z);
+    quat.set(mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, 1);
+    // quat.set(Math.PI / 2, 0, 0, 1);
     let body = createRigidBody(object, shape, mass, pos, quat);
+    // let body = createRigidBody(object, shape, mass, null, null);
     body.setRestitution(0.8);
     platforms.push(body);
 
-    return object;
+    return mesh;
 }
 
 function setupBall(scene) {
@@ -691,64 +664,102 @@ window.addEventListener('resize', function () {
 const raycaster = new THREE.Raycaster();
 let mouseX = 0, mouseY = 0;
 
-window.addEventListener('pointerdown', function(event) {
+// window.addEventListener('pointerdown', function(event) {
 
-    // mouseCoords.set(
-    //     ( event.clientX / window.innerWidth ) * 2 - 1,
-    //     - ( event.clientY / window.innerHeight ) * 2 + 1
-    // );
+//     // mouseCoords.set(
+//     //     ( event.clientX / window.innerWidth ) * 2 - 1,
+//     //     - ( event.clientY / window.innerHeight ) * 2 + 1
+//     // );
 
-    event.preventDefault();
+//     event.preventDefault();
 
-    pointerDown = true;
-    mouseX = event.clientX;
-    mouseY = event.clientY;
-    return false;
-});
+//     pointerDown = true;
+//     mouseX = event.clientX;
+//     mouseY = event.clientY;
+//     return false;
+// });
 
-window.addEventListener('pointerup', function(event) {
+// window.addEventListener('pointerup', function(event) {
 
-    event.preventDefault();
+//     event.preventDefault();
 
-    // mouseCoords.set(
-    //     ( event.clientX / window.innerWidth ) * 2 - 1,
-    //     - ( event.clientY / window.innerHeight ) * 2 + 1
-    // );
+//     // mouseCoords.set(
+//     //     ( event.clientX / window.innerWidth ) * 2 - 1,
+//     //     - ( event.clientY / window.innerHeight ) * 2 + 1
+//     // );
 
-    pointerDown = false;
-    return false;
-});
+//     pointerDown = false;
+//     return false;
+// });
 
-window.addEventListener('pointermove', function(event) {
+// window.addEventListener('pointermove', function(event) {
 
-    // mouseCoords.set(
-    //     ( event.clientX / window.innerWidth ) * 2 - 1,
-    //     - ( event.clientY / window.innerHeight ) * 2 + 1
-    // );
+//     // mouseCoords.set(
+//     //     ( event.clientX / window.innerWidth ) * 2 - 1,
+//     //     - ( event.clientY / window.innerHeight ) * 2 + 1
+//     // );
 
-    if (!pointerDown) {
-        return;
-    }
+//     if (!pointerDown) {
+//         return;
+//     }
 
-    event.preventDefault();
+//     event.preventDefault();
 
-    let deltaX = event.clientX - mouseX;
-    let deltaY = event.clientY - mouseY;
-    mouseX = event.clientX;
-    mouseY = event.clientY;
+//     let deltaX = event.clientX - mouseX;
+//     let deltaY = event.clientY - mouseY;
+//     mouseX = event.clientX;
+//     mouseY = event.clientY;
 
-    // generalGroup.rotation.x += deltaX / 100;
-    generalGroup.rotation.y -= deltaX / 50;
+//     // generalGroup.rotation.x += deltaX / 100;
+//     generalGroup.rotation.y -= deltaX / 50;
 
-    quat.set(Math.PI / 2, generalGroup.rotation.y, 0, 1);
+    
 
-    for (const platform of platforms) {
-        // const ms = platform.getMotionState();
-        const transform = platform.getWorldTransform();
-        transform.setRotation(quat);
-        platform.setWorldTransform(transform);
-    }
+//     for (const platform of platforms) {
+//         // const ms = platform.getMotionState();
+//         const transform = platform.getWorldTransform();
+//         let q = transform.getRotation();
+//         quat.set(q.x(), generalGroup.rotation.y, q.z(), q.w());
+//         console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
+//         transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+//         platform.setWorldTransform(transform);
+//     }
 
-    return false;
-});
+//     return false;
+// });
 
+window.addEventListener( 'pointerdown', function ( event ) {
+
+    mouseCoords.set(
+        ( event.clientX / window.innerWidth ) * 2 - 1,
+        - ( event.clientY / window.innerHeight ) * 2 + 1
+    );
+    console.log(mouseCoords);
+
+    raycaster.setFromCamera( mouseCoords, camera );
+
+    // Creates a ball and throws it
+    const ballMass = 35;
+    const ballRadius = 0.4;
+
+    const ballMaterial = new THREE.MeshPhongMaterial({
+        color: 0x156289,
+        emissive: 0x091833,
+    });
+
+    const ball = new THREE.Mesh( new THREE.SphereGeometry( ballRadius, 14, 10 ), ballMaterial );
+    ballGroup.add(ball);
+    ball.castShadow = true;
+    ball.receiveShadow = true;
+    const ballShape = new Ammo.btSphereShape( ballRadius );
+    ballShape.setMargin( margin );
+    pos.copy( raycaster.ray.direction );
+    pos.add( raycaster.ray.origin );
+    quat.set( 0, 0, 0, 1 );
+    const ballBody = createRigidBody( ball, ballShape, ballMass, pos, quat );
+
+    pos.copy( raycaster.ray.direction );
+    pos.multiplyScalar( 24 );
+    ballBody.setLinearVelocity( new Ammo.btVector3( pos.x, pos.y, pos.z ) );
+
+} );
