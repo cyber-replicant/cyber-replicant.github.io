@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const twoPi = Math.PI * 2;
 
-let camera, clock, scene, renderer, generalGroup, ballGroup;
+let camera, clock, scene, renderer, generalGroup, ballGroup, ball;
 let pointerDown = false;
 let platforms = [];
 
@@ -70,7 +70,7 @@ function setupScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    const orbit = new OrbitControls(camera, renderer.domElement);
+    // const orbit = new OrbitControls(camera, renderer.domElement);
     // orbit.enableZoom = false;
 
     setupLights(scene);
@@ -99,12 +99,27 @@ function setupLights(scene) {
 
 function setupLevel(scene) {
 
+    generalGroup = new THREE.Group();
+
     // Ground
-    // pos.set(0, -5, 0);
+    // pos.set(5, -5, 0);
     // quat.set(0, 0, 0, 1);
 
-    // const ground = createParalellepipedWithPhysics(40, 1, 40, 0, pos, quat, new THREE.MeshPhongMaterial({ color: 0xFFFFFF } ));
+    // const ground = createParalellepipedWithPhysics(
+    //     5, 1, 5, 0, pos, quat, new THREE.MeshPhongMaterial({ color: 0xFFFFFF } )
+    // );
     // ground.receiveShadow = true;
+
+    // pos.set(5, -5, 5);
+    // quat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), 5);
+    // console.log(quat);
+    // // quat.set(0, Math.PI/2, 0, 1);
+
+    // // mesh.rotateOnAxis( new THREE.Vector3( 0, 1, 0 ), rotationY );
+
+    // let moo = createParalellepipedWithPhysics(
+    //     5, 1, 5, 0, pos, quat, new THREE.MeshPhongMaterial({ color: 0xFFFFFF } )
+    // );
 
     // Middle cylinder object
     const data = {
@@ -135,7 +150,6 @@ function setupLevel(scene) {
         side: THREE.DoubleSide,
     });
 
-    generalGroup = new THREE.Group();
     let cylinderObject = new THREE.Mesh(cylinderGeometry, meshMaterial);
 
     generalGroup.add(cylinderObject);
@@ -162,7 +176,10 @@ function createParalellepipedWithPhysics(sx, sy, sz, mass, pos, quat, material) 
     const shape = new Ammo.btBoxShape(new Ammo.btVector3(sx * 0.5, sy * 0.5, sz * 0.5 ));
     shape.setMargin(margin);
 
-    createRigidBody(object, shape, mass, pos, quat);
+    generalGroup.add(object);
+    let body = createRigidBody(object, shape, mass, pos, quat);
+    body.setRestitution(1);
+    platforms.push(body);
     return object;
 }
 
@@ -214,12 +231,31 @@ function generatePlatform(platformY) {
     //     chunksToRemove -= 1;
     // }
 
-    for (let rotationY of possibleRotations) {
+    const positions = [
+        new THREE.Vector3(5, 5, 0),
+        // new THREE.Vector3(5, 5, 5),
+        // new THREE.Vector3(5, 5, -5),
+        // // new THREE.Vector3(-5, 5, 0),
+        // new THREE.Vector3(-5, 5, -5),
+        // // new THREE.Vector3(-5, 5, 5),
+        // new THREE.Vector3(0, 5, 5),
+        // new THREE.Vector3(0, 5, -5),
+    ];
 
-        let chunk = generatePieChunk(rotationY);
+    for (let position of positions) {
+
+        // let chunk = generatePieChunk(rotationY);
         // generalGroup.add(chunk);
         // chunk.rotation.y = rotationY;
-        chunk.position.y = platformY;
+        // chunk.position.y = platformY;
+        pos.copy(position);
+        // pos.set(5, -5, 0);
+        quat.set(0.383, 0, 0.383, 0.924);
+
+        let boop = createParalellepipedWithPhysics(
+            5, 1, 5, 0, pos, quat, new THREE.MeshPhongMaterial({ color: 0xFFFFFF } )
+        );
+        // platforms.push(boop);
     }
 
     // chunk = generatePieChunk();
@@ -354,7 +390,7 @@ function generatePieChunk(rotationY) {
     // mesh.position.z = object.position.z;
     // mesh.rotation.x = Math.PI / 2;
     // mesh.rotation.y = rotationY;
-    // mesh.quaternion.x = 0.5;
+    // mesh.quaternion.y = Math.PI / 2;
     // mesh.rotateOnAxis( new THREE.Vector3( 0, 1, 0 ), rotationY );
     // console.log(mesh.quaternion);
     generalGroup.add(mesh);
@@ -376,8 +412,16 @@ function generatePieChunk(rotationY) {
 
     const mass = 0;
     pos.set(object.position.x, object.position.y, object.position.z);
-    quat.set(mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, 1);
-    // quat.set(Math.PI / 2, 0, 0, 1);
+    // quat.set(0, 0, 0, 1);
+    // quat.set(mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, 1);
+    // quat.set(Math.PI / 2, mesh.rotation.y, mesh.rotation.z, 1);
+    // quat.set(Math.PI / 5, 0, 0, 1);
+
+    quat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+
+    // quat = new Ammo.btQuaternion(new Ammo.btVector3(0,1,0),-Math.PI/2)
+    // let fuck = new Ammo.btQuaternion(new Ammo.btVector3(0,1,0),-Math.PI/2);
+
     let body = createRigidBody(mesh, shape, mass, pos, quat);
     // let body = createRigidBody(object, shape, mass, null, null);
     body.setRestitution(0.8);
@@ -414,7 +458,7 @@ function setupBall(scene) {
 
     
     // const ballMaterial = new THREE.MeshBasicMaterial( { color: 0xffff00 } );
-    const ball = new THREE.Mesh(sphereGeometry, meshMaterial);
+    ball = new THREE.Mesh(sphereGeometry, meshMaterial);
     const ballShape = new Ammo.btSphereShape(sphereData.radius);
     ballShape.setMargin(margin);
 
@@ -468,6 +512,7 @@ function createRigidBody(object, physicsShape, mass, pos, quat, vel, angVel) {
     const body = new Ammo.btRigidBody(rbInfo);
 
     body.setFriction(0.5);
+    body.setAngularFactor( 0, 1, 0 );
     // body.setRollingFriction(10);
 
     if (vel) {
@@ -541,118 +586,6 @@ function updatePhysics(deltaTime) {
             objThree.userData.collided = false;
         }
     }
-
-    // for (let i = 0, il = dispatcher.getNumManifolds(); i < il; i ++) {
-
-    //     const contactManifold = dispatcher.getManifoldByIndexInternal(i);
-    //     const rb0 = Ammo.castObject(contactManifold.getBody0(), Ammo.btRigidBody);
-    //     const rb1 = Ammo.castObject(contactManifold.getBody1(), Ammo.btRigidBody);
-
-    //     const threeObject0 = Ammo.castObject(rb0.getUserPointer(), Ammo.btVector3).threeObject;
-    //     const threeObject1 = Ammo.castObject(rb1.getUserPointer(), Ammo.btVector3).threeObject;
-
-    //     if (!threeObject0 && !threeObject1) {
-    //         continue;
-    //     }
-
-    //     const userData0 = threeObject0 ? threeObject0.userData : null;
-    //     const userData1 = threeObject1 ? threeObject1.userData : null;
-
-    //     const breakable0 = userData0 ? userData0.breakable : false;
-    //     const breakable1 = userData1 ? userData1.breakable : false;
-
-    //     const collided0 = userData0 ? userData0.collided : false;
-    //     const collided1 = userData1 ? userData1.collided : false;
-
-    //     if ((!breakable0 && !breakable1) || (collided0 && collided1)) {
-    //         continue;
-    //     }
-
-    //     let contact = false;
-    //     let maxImpulse = 0;
-    //     for ( let j = 0, jl = contactManifold.getNumContacts(); j < jl; j ++ ) {
-
-    //         const contactPoint = contactManifold.getContactPoint( j );
-
-    //         if ( contactPoint.getDistance() < 0 ) {
-
-    //             contact = true;
-    //             const impulse = contactPoint.getAppliedImpulse();
-
-    //             if ( impulse > maxImpulse ) {
-
-    //                 maxImpulse = impulse;
-    //                 const pos = contactPoint.get_m_positionWorldOnB();
-    //                 const normal = contactPoint.get_m_normalWorldOnB();
-    //                 impactPoint.set( pos.x(), pos.y(), pos.z() );
-    //                 impactNormal.set( normal.x(), normal.y(), normal.z() );
-
-    //             }
-
-    //             break;
-
-    //         }
-
-    //     }
-
-    //     // If no point has contact, abort
-    //     if ( ! contact ) continue;
-
-    //     // Subdivision
-
-    //     const fractureImpulse = 250;
-
-    //     if ( breakable0 && ! collided0 && maxImpulse > fractureImpulse ) {
-
-    //         const debris = convexBreaker.subdivideByImpact( threeObject0, impactPoint, impactNormal, 1, 2, 1.5 );
-
-    //         const numObjects = debris.length;
-    //         for ( let j = 0; j < numObjects; j ++ ) {
-
-    //             const vel = rb0.getLinearVelocity();
-    //             const angVel = rb0.getAngularVelocity();
-    //             const fragment = debris[ j ];
-    //             fragment.userData.velocity.set( vel.x(), vel.y(), vel.z() );
-    //             fragment.userData.angularVelocity.set( angVel.x(), angVel.y(), angVel.z() );
-
-    //             createDebrisFromBreakableObject( fragment );
-
-    //         }
-
-    //         objectsToRemove[ numObjectsToRemove ++ ] = threeObject0;
-    //         userData0.collided = true;
-
-    //     }
-
-    //     if ( breakable1 && ! collided1 && maxImpulse > fractureImpulse ) {
-
-    //         const debris = convexBreaker.subdivideByImpact( threeObject1, impactPoint, impactNormal, 1, 2, 1.5 );
-
-    //         const numObjects = debris.length;
-    //         for ( let j = 0; j < numObjects; j ++ ) {
-
-    //             const vel = rb1.getLinearVelocity();
-    //             const angVel = rb1.getAngularVelocity();
-    //             const fragment = debris[ j ];
-    //             fragment.userData.velocity.set( vel.x(), vel.y(), vel.z() );
-    //             fragment.userData.angularVelocity.set( angVel.x(), angVel.y(), angVel.z() );
-
-    //             createDebrisFromBreakableObject( fragment );
-
-    //         }
-
-    //         objectsToRemove[ numObjectsToRemove ++ ] = threeObject1;
-    //         userData1.collided = true;
-
-    //     }
-
-    // }
-
-    // for ( let i = 0; i < numObjectsToRemove; i ++ ) {
-    //     removeDebris( objectsToRemove[ i ] );
-    // }
-
-    // numObjectsToRemove = 0;
 }
 
 window.addEventListener('resize', function () {
@@ -667,71 +600,15 @@ window.addEventListener('resize', function () {
 const raycaster = new THREE.Raycaster();
 let mouseX = 0, mouseY = 0;
 
-// window.addEventListener('pointerdown', function(event) {
+window.addEventListener('pointerdown', function(event) {
 
-//     // mouseCoords.set(
-//     //     ( event.clientX / window.innerWidth ) * 2 - 1,
-//     //     - ( event.clientY / window.innerHeight ) * 2 + 1
-//     // );
+    // mouseCoords.set(
+    //     ( event.clientX / window.innerWidth ) * 2 - 1,
+    //     - ( event.clientY / window.innerHeight ) * 2 + 1
+    // );
 
-//     event.preventDefault();
+    event.preventDefault();
 
-//     pointerDown = true;
-//     mouseX = event.clientX;
-//     mouseY = event.clientY;
-//     return false;
-// });
-
-// window.addEventListener('pointerup', function(event) {
-
-//     event.preventDefault();
-
-//     // mouseCoords.set(
-//     //     ( event.clientX / window.innerWidth ) * 2 - 1,
-//     //     - ( event.clientY / window.innerHeight ) * 2 + 1
-//     // );
-
-//     pointerDown = false;
-//     return false;
-// });
-
-// window.addEventListener('pointermove', function(event) {
-
-//     // mouseCoords.set(
-//     //     ( event.clientX / window.innerWidth ) * 2 - 1,
-//     //     - ( event.clientY / window.innerHeight ) * 2 + 1
-//     // );
-
-//     if (!pointerDown) {
-//         return;
-//     }
-
-//     event.preventDefault();
-
-//     let deltaX = event.clientX - mouseX;
-//     let deltaY = event.clientY - mouseY;
-//     mouseX = event.clientX;
-//     mouseY = event.clientY;
-
-//     // generalGroup.rotation.x += deltaX / 100;
-//     generalGroup.rotation.y -= deltaX / 50;
-
-    
-
-//     for (const platform of platforms) {
-//         // const ms = platform.getMotionState();
-//         const transform = platform.getWorldTransform();
-//         let q = transform.getRotation();
-//         quat.set(q.x(), generalGroup.rotation.y, q.z(), q.w());
-//         console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
-//         transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
-//         platform.setWorldTransform(transform);
-//     }
-
-//     return false;
-// });
-
-window.addEventListener( 'pointerdown', function ( event ) {
 
     mouseCoords.set(
         ( event.clientX / window.innerWidth ) * 2 - 1,
@@ -765,4 +642,105 @@ window.addEventListener( 'pointerdown', function ( event ) {
     pos.multiplyScalar( 24 );
     ballBody.setLinearVelocity( new Ammo.btVector3( pos.x, pos.y, pos.z ) );
 
-} );
+
+
+
+
+
+    pointerDown = true;
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+    return false;
+});
+
+window.addEventListener('pointerup', function(event) {
+
+    event.preventDefault();
+
+    // mouseCoords.set(
+    //     ( event.clientX / window.innerWidth ) * 2 - 1,
+    //     - ( event.clientY / window.innerHeight ) * 2 + 1
+    // );
+
+    pointerDown = false;
+    return false;
+});
+
+window.addEventListener('pointermove', function(event) {
+
+    // mouseCoords.set(
+    //     ( event.clientX / window.innerWidth ) * 2 - 1,
+    //     - ( event.clientY / window.innerHeight ) * 2 + 1
+    // );
+
+    if (!pointerDown) {
+        return;
+    }
+
+    event.preventDefault();
+
+    let deltaX = event.clientX - mouseX;
+    let deltaY = event.clientY - mouseY;
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+
+    // generalGroup.rotation.x += deltaX / 100;
+    // generalGroup.rotation.y -= deltaX / 50;
+    // ballGroup.rotation.y -= deltaX / 50;
+
+    const transform = ball.userData.physicsBody.getCenterOfMassTransform();
+    let q = transform.getRotation();
+    console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
+
+    quat.set(q.x(), q.y() - deltaX / 50, q.z(), 1);
+    transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+    ball.userData.physicsBody.setCenterOfMassTransform(transform);
+
+    // for (const platform of platforms) {
+    //     // const ms = platform.getMotionState();
+    //     const transform = platform.getWorldTransform();
+    //     let q = transform.getRotation();
+    //     quat.set(1, q.x(), generalGroup.rotation.y, q.z());
+    //     console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
+    //     transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+    //     platform.setWorldTransform(transform);
+    // }
+
+    return false;
+});
+
+// window.addEventListener( 'pointerdown', function ( event ) {
+
+//     mouseCoords.set(
+//         ( event.clientX / window.innerWidth ) * 2 - 1,
+//         - ( event.clientY / window.innerHeight ) * 2 + 1
+//     );
+//     console.log(mouseCoords);
+
+//     raycaster.setFromCamera( mouseCoords, camera );
+
+//     // Creates a ball and throws it
+//     const ballMass = 35;
+//     const ballRadius = 0.4;
+
+//     const ballMaterial = new THREE.MeshPhongMaterial({
+//         color: 0x156289,
+//         emissive: 0x091833,
+//     });
+
+//     const ball = new THREE.Mesh( new THREE.SphereGeometry( ballRadius, 14, 10 ), ballMaterial );
+//     ballGroup.add(ball);
+//     ball.castShadow = true;
+//     ball.receiveShadow = true;
+//     const ballShape = new Ammo.btSphereShape( ballRadius );
+//     ballShape.setMargin( margin );
+//     pos.copy( raycaster.ray.direction );
+//     pos.add( raycaster.ray.origin );
+//     quat.set( 0, 0, 0, 1 );
+//     const ballBody = createRigidBody( ball, ballShape, ballMass, pos, quat );
+
+//     pos.copy( raycaster.ray.direction );
+//     pos.multiplyScalar( 24 );
+//     ballBody.setLinearVelocity( new Ammo.btVector3( pos.x, pos.y, pos.z ) );
+
+// } );
