@@ -138,7 +138,7 @@ function setupLevel(scene) {
     generalGroup = new THREE.Group();
     let cylinderObject = new THREE.Mesh(cylinderGeometry, meshMaterial);
 
-    // generalGroup.add(cylinderObject);
+    generalGroup.add(cylinderObject);
     scene.add(generalGroup);
 
     cylinderObject.position.y = -30;
@@ -174,7 +174,7 @@ function setupPlatforms(scene) {
     // for (let i = 0; i < numPlatforms; i++) {
 
     let i = 0;
-    generatePlatform(gapSize * i);
+    generatePlatform(1);
     // }
 
     // object.rotation.y = Math.PI;
@@ -196,12 +196,12 @@ function generatePlatform(platformY) {
     const possibleRotations = [
         0,
         chunkSize,
-        // chunkSize * 2,
-        // chunkSize * 3,
-        // chunkSize * 4,
-        // chunkSize * 5,
-        // chunkSize * 6,
-        // chunkSize * 7,
+        chunkSize * 2,
+        chunkSize * 3,
+        chunkSize * 4,
+        chunkSize * 5,
+        chunkSize * 6,
+        chunkSize * 7,
     ];
 
     // const maxChunksToRemove = 4;
@@ -216,10 +216,10 @@ function generatePlatform(platformY) {
 
     for (let rotationY of possibleRotations) {
 
-        let chunk = generatePieChunk();
+        let chunk = generatePieChunk(rotationY);
         // generalGroup.add(chunk);
         // chunk.rotation.y = rotationY;
-        // chunk.position.y = platformY;
+        chunk.position.y = platformY;
     }
 
     // chunk = generatePieChunk();
@@ -261,7 +261,7 @@ function bloop(vertices, color) {
     return mesh;
 }
 
-function generatePieChunk() {
+function generatePieChunk(rotationY) {
 
     let color = generateRandomColor();
     let emissive = generateRandomColor();
@@ -287,6 +287,18 @@ function generatePieChunk() {
         data.thetaLength
     );
 
+    const meshMaterial = new THREE.MeshPhongMaterial({
+        // color: 0x133E7C,
+        // emissive: 0x072534,
+        color: color,
+        emissive: emissive,
+        side: THREE.DoubleSide
+    });
+
+    const object = new THREE.Mesh(cylinderGeometry, meshMaterial);
+    generalGroup.add(object);
+    object.rotation.y = rotationY;
+
     // const shape = new Ammo.btCylinderShape(
     //     new Ammo.btVector3(data.radius, data.height * 0.5, 50)
     // );
@@ -294,9 +306,9 @@ function generatePieChunk() {
 
     // Custom shapes for collision with the platforms
     const pointA = 0.0;
-    const pointB = 9.0;
-    const pointC = 6.5;
-    const pointD = 3.0;
+    const pointB = 7.0;
+    const pointC = 5.0;
+    const pointD = 2.0;
 
     const collisionPoints = new Float32Array([
         pointA, pointA,  pointA,
@@ -339,9 +351,11 @@ function generatePieChunk() {
     geometry.setAttribute('position', new THREE.BufferAttribute(collisionPoints, 3));
     const material = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide });
     const mesh = new THREE.Mesh(geometry, material);
+    // mesh.position.z = object.position.z;
     // mesh.rotation.x = Math.PI / 2;
+    // mesh.rotation.y = rotationY;
     // mesh.quaternion.x = 0.5;
-    mesh.quaternion.setFromAxisAngle( new THREE.Vector3( 1, 0, 0 ), Math.PI / 2 );
+    // mesh.rotateOnAxis( new THREE.Vector3( 0, 1, 0 ), rotationY );
     // console.log(mesh.quaternion);
     generalGroup.add(mesh);
 
@@ -358,24 +372,13 @@ function generatePieChunk() {
     }
 
     const shape = new Ammo.btBvhTriangleMeshShape(triangleMesh, true, true);
-    shape.setMargin(0);
-
-    const meshMaterial = new THREE.MeshPhongMaterial({
-        // color: 0x133E7C,
-        // emissive: 0x072534,
-        color: color,
-        emissive: emissive,
-        side: THREE.DoubleSide
-    });
-
-    const object = new THREE.Mesh(cylinderGeometry, meshMaterial);
-    generalGroup.add(object);
+    shape.setMargin(margin);
 
     const mass = 0;
     pos.set(object.position.x, object.position.y, object.position.z);
     quat.set(mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, 1);
     // quat.set(Math.PI / 2, 0, 0, 1);
-    let body = createRigidBody(object, shape, mass, pos, quat);
+    let body = createRigidBody(mesh, shape, mass, pos, quat);
     // let body = createRigidBody(object, shape, mass, null, null);
     body.setRestitution(0.8);
     platforms.push(body);
