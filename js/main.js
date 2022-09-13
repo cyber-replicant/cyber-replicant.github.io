@@ -5,7 +5,7 @@ import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const twoPi = Math.PI * 2;
 
-let camera, clock, scene, renderer, generalGroup, ballGroup, ball, boop;
+let camera, clock, scene, renderer, generalGroup, ballGroup, ball, bloop, ballBounds, cubeBounds;
 let pointerDown = false;
 let platforms = [];
 
@@ -15,7 +15,7 @@ const mouseCoords = new THREE.Vector2();
 const rigidBodies = [];
 
 // Physics variables
-const gravityConstant = 7.8;
+const gravityConstant = 20;
 let collisionConfiguration;
 let dispatcher;
 let broadphase;
@@ -63,8 +63,8 @@ function setupScene() {
     scene.background = new THREE.Color(0x444444);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
-    camera.position.y = 10;
-    camera.position.x = 5;
+    camera.position.y = 3.6;
+    camera.position.x = 5.3;
     camera.position.z = 12;
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -154,13 +154,13 @@ function setupLevel(scene) {
 
     let cylinderObject = new THREE.Mesh(cylinderGeometry, meshMaterial);
 
-    // generalGroup.add(cylinderObject);
+    generalGroup.add(cylinderObject);
     scene.add(generalGroup);
 
     cylinderObject.position.y = -30;
 
     // Platforms
-    setupHinge();
+    // setupHinge();
     setupPlatforms(scene);
 
     // Ball
@@ -200,13 +200,13 @@ let hinge, arm;
 function setupHinge() {
 
     // The base
-    const ropePos = new THREE.Vector3( - 3, 2, 0 );
+    const ropePos = new THREE.Vector3( 0, 0, 0 );
     const ropeLength = 4;
     const armMass = 2;
     const armLength = 3;
     const pylonHeight = ropePos.y + ropeLength;
     const baseMaterial = new THREE.MeshPhongMaterial( { color: 0x606060 } );
-    pos.set( ropePos.x, 0.1, ropePos.z - armLength ) ;
+    pos.set( 0, 0, 0 ) ;
     quat.set( 0, 0, 0, 1 );
     const base = createParalellepipedWithPhysics( 1, 0.2, 1, 0, pos, quat, baseMaterial );
     base.castShadow = true;
@@ -216,7 +216,7 @@ function setupHinge() {
     pylon.castShadow = true;
     pylon.receiveShadow = true;
     pos.set( ropePos.x, pylonHeight + 0.2, ropePos.z - 0.5 * armLength );
-    arm = createParalellepipedWithPhysics( 0.4, 0.4, armLength + 0.4, armMass, pos, quat, baseMaterial );
+    arm = createParalellepipedWithPhysics( 2, 0.5, 2, armMass, pos, quat, baseMaterial );
     arm.castShadow = true;
     arm.receiveShadow = true;       
 
@@ -281,16 +281,35 @@ function generatePlatform(platformY) {
         // quat.set(0.383, 0, 0.383, 0.924);
 
         // rx, ry and rz are target radians
-        var euler = new THREE.Euler(Math.PI / 2,0,0);
-        // var quaternion = new THREE.Quaternion();
-        quat.setFromEuler(euler);
-        quat.setFromAxisAngle(new THREE.Vector3(1,0,0), Math.PI / 2);
+        // var euler = new THREE.Euler(0,0,0);
+        // // var quaternion = new THREE.Quaternion();
+        // quat.setFromEuler(euler);
+        // quat.setFromAxisAngle(new THREE.Vector3(1,0,0), Math.PI / 2);
         // object.rotation.setFromQuaternion(quaternion);
 
-        boop = createParalellepipedWithPhysics(
-            5, 1, 5, 0, pos, quat, new THREE.MeshPhongMaterial({ color: 0xFFFFFF } )
-        );
+        let sx = 10;
+        let sy = 1;
+        let sz = 5;
+        let material = new THREE.MeshPhongMaterial({ color: 0xFFFFFF });
+
+        bloop = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz, 1, 1, 1 ), material);
+        // const shape = new Ammo.btBoxShape(new Ammo.btVector3(sx * 0.5, sy * 0.5, sz * 0.5 ));
+        // shape.setMargin(margin);
+        bloop.geometry.computeBoundingBox();
+        // let box = bloop.geometry.boundingBox;
+        // let min = new THREE.Vector3(box.min.x * 0.5, box.min.y * 0.5, box.min.z * 0.5);
+        // let max = new THREE.Vector3(box.max.x * 0.5, box.max.y * 0.5, box.max.z * 0.5);
+        // console.log(box)
+
+        generalGroup.add(bloop);
+
+        // boop = createParalellepipedWithPhysics(
+        //     5, 1, 5, 0, pos, quat, new THREE.MeshPhongMaterial({ color: 0xFFFFFF } )
+        // );
         // platforms.push(boop);
+        cubeBounds = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+        cubeBounds.setFromObject(bloop);
+        console.log(cubeBounds);
     }
 
     // chunk = generatePieChunk();
@@ -499,9 +518,10 @@ function generatePieChunk(rotationY) {
 function setupBall(scene) {
 
     const ballMass = 5;
+    const ballRadius = 1;
 
     const sphereData = {
-        radius: 1,
+        radius: ballRadius,
         widthSegments: 32,
         heightSegments: 16,
         phiStart: 0,
@@ -532,8 +552,9 @@ function setupBall(scene) {
     ball.receiveShadow = true;
 
     pos.set(5, 10, 0);
-    ball.position.x = pos.x;
-    ball.position.y = pos.y;
+    ball.position.copy(pos);
+
+    ballBounds = new THREE.Sphere(pos, ballRadius);
 
     quat.set(0, 0, 0, 1);
     const ballBody = createRigidBody(ball, ballShape, ballMass, pos, quat);
@@ -578,7 +599,7 @@ function createRigidBody(object, physicsShape, mass, pos, quat, vel, angVel) {
     const body = new Ammo.btRigidBody(rbInfo);
 
     body.setFriction(0.5);
-    body.setAngularFactor( 0, 1, 0 );
+    // body.setAngularFactor( 0, 1, 0 );
     // body.setRollingFriction(10);
 
     if (vel) {
@@ -612,13 +633,23 @@ function generateRandomColor() {
     return Math.floor(Math.random() * ( 1 << 24 ));
 }
 
+function checkCollisions() {
+
+    if (ballBounds.intersectsBox(cubeBounds)) {
+        // ball.material.opacity = 0.1;
+        ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,15,0));
+        console.log("SDFSDF");
+    }
+}
+
 function animate() {
 
-    requestAnimationFrame(animate);
+    ballBounds.copy(ball.geometry.boundingSphere).applyMatrix4(ball.matrixWorld);
+    cubeBounds.copy(bloop.geometry.boundingBox).applyMatrix4(bloop.matrixWorld);
+    checkCollisions();    
 
     render();
-    // stats.update();
-
+    requestAnimationFrame(animate);
 }
 
 function render() {
@@ -633,7 +664,9 @@ function render() {
 function updatePhysics(deltaTime) {
 
     // Hinge control
-    hinge.enableAngularMotor( true, 1.5 * armMovement, 50 );
+    // if (pointerDown) {
+    //     hinge.enableAngularMotor( true, 1.5 * armMovement, 50 );
+    // }
 
     // Step world
     physicsWorld.stepSimulation(deltaTime, 10);
@@ -679,37 +712,37 @@ window.addEventListener('pointerdown', function(event) {
     event.preventDefault();
 
 
-    mouseCoords.set(
-        ( event.clientX / window.innerWidth ) * 2 - 1,
-        - ( event.clientY / window.innerHeight ) * 2 + 1
-    );
-    console.log(mouseCoords);
+    // mouseCoords.set(
+    //     ( event.clientX / window.innerWidth ) * 2 - 1,
+    //     - ( event.clientY / window.innerHeight ) * 2 + 1
+    // );
+    // console.log(mouseCoords);
 
-    raycaster.setFromCamera( mouseCoords, camera );
+    // raycaster.setFromCamera( mouseCoords, camera );
 
-    // Creates a ball and throws it
-    const ballMass = 35;
-    const ballRadius = 0.4;
+    // // Creates a ball and throws it
+    // const ballMass = 35;
+    // const ballRadius = 0.4;
 
-    const ballMaterial = new THREE.MeshPhongMaterial({
-        color: 0x156289,
-        emissive: 0x091833,
-    });
+    // const ballMaterial = new THREE.MeshPhongMaterial({
+    //     color: 0x156289,
+    //     emissive: 0x091833,
+    // });
 
-    const ball = new THREE.Mesh( new THREE.SphereGeometry( ballRadius, 14, 10 ), ballMaterial );
-    ballGroup.add(ball);
-    ball.castShadow = true;
-    ball.receiveShadow = true;
-    const ballShape = new Ammo.btSphereShape( ballRadius );
-    ballShape.setMargin( margin );
-    pos.copy( raycaster.ray.direction );
-    pos.add( raycaster.ray.origin );
-    quat.set( 0, 0, 0, 1 );
-    const ballBody = createRigidBody( ball, ballShape, ballMass, pos, quat );
+    // const ball = new THREE.Mesh( new THREE.SphereGeometry( ballRadius, 14, 10 ), ballMaterial );
+    // ballGroup.add(ball);
+    // ball.castShadow = true;
+    // ball.receiveShadow = true;
+    // const ballShape = new Ammo.btSphereShape( ballRadius );
+    // ballShape.setMargin( margin );
+    // pos.copy( raycaster.ray.direction );
+    // pos.add( raycaster.ray.origin );
+    // quat.set( 0, 0, 0, 1 );
+    // const ballBody = createRigidBody( ball, ballShape, ballMass, pos, quat );
 
-    pos.copy( raycaster.ray.direction );
-    pos.multiplyScalar( 24 );
-    ballBody.setLinearVelocity( new Ammo.btVector3( pos.x, pos.y, pos.z ) );
+    // pos.copy( raycaster.ray.direction );
+    // pos.multiplyScalar( 24 );
+    // ballBody.setLinearVelocity( new Ammo.btVector3( pos.x, pos.y, pos.z ) );
 
 
 
@@ -722,6 +755,8 @@ window.addEventListener('pointerdown', function(event) {
     return false;
 });
 
+let rot = new THREE.Vector3(0,0,0);
+
 window.addEventListener('pointerup', function(event) {
 
     event.preventDefault();
@@ -731,57 +766,64 @@ window.addEventListener('pointerup', function(event) {
     //     - ( event.clientY / window.innerHeight ) * 2 + 1
     // );
 
+    // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(-rot.x,-rot.y,-rot.z));
+    // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
+    // arm.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,0,0));
     pointerDown = false;
     return false;
 });
 
-// window.addEventListener('pointermove', function(event) {
+window.addEventListener('pointermove', function(event) {
 
-//     // mouseCoords.set(
-//     //     ( event.clientX / window.innerWidth ) * 2 - 1,
-//     //     - ( event.clientY / window.innerHeight ) * 2 + 1
-//     // );
+    // mouseCoords.set(
+    //     ( event.clientX / window.innerWidth ) * 2 - 1,
+    //     - ( event.clientY / window.innerHeight ) * 2 + 1
+    // );
 
-//     if (!pointerDown) {
-//         return;
-//     }
+    if (!pointerDown) {
+        return;
+    }
 
-//     event.preventDefault();
+    event.preventDefault();
 
-//     let deltaX = event.clientX - mouseX;
-//     let deltaY = event.clientY - mouseY;
-//     mouseX = event.clientX;
-//     mouseY = event.clientY;
+    let deltaX = event.clientX - mouseX;
+    let deltaY = event.clientY - mouseY;
+    mouseX = event.clientX;
+    mouseY = event.clientY;
 
-//     // generalGroup.rotation.x += deltaX / 100;
-//     boop.rotation.y -= deltaX / 50;
-//     // console.log(boop.rotation);
-//     // console.log(boop.quaternion);
-//     setObjectRotation(boop, boop.quaternion);
-//     // ballGroup.rotation.y -= deltaX / 50;
+    generalGroup.rotation.y -= deltaX / 100;
+    // arm.rotation.y -= deltaX / 50;
+    // var euler = new THREE.Euler(arm.rotation.x,arm.rotation.y,arm.rotation.z);
+    // quat.setFromEuler(euler);
+    // // console.log(boop.rotation);
+    // // console.log(boop.quaternion);
+    // setObjectRotation(arm, quat);
+    // rot.set(0,deltaX/2,0);
+    // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(rot.x, rot.y, rot.z));
+    // ballGroup.rotation.y -= deltaX / 50;
 
-//     // const transform = ball.userData.physicsBody.getCenterOfMassTransform();
-//     // let q = transform.getRotation();
-//     // console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
+    // const transform = ball.userData.physicsBody.getCenterOfMassTransform();
+    // let q = transform.getRotation();
+    // console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
 
-//     // var euler = new THREE.Euler(generalGroup.rotation.x,generalGroup.rotation.y,generalGroup.rotation.z);
-//     // quat.setFromEuler(euler);
-//     // // quat.set(q.x(), q.y() - deltaX / 50, q.z(), 1);
-//     // transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
-//     // ball.userData.physicsBody.setCenterOfMassTransform(transform);
+    // var euler = new THREE.Euler(generalGroup.rotation.x,generalGroup.rotation.y,generalGroup.rotation.z);
+    // quat.setFromEuler(euler);
+    // // quat.set(q.x(), q.y() - deltaX / 50, q.z(), 1);
+    // transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+    // ball.userData.physicsBody.setCenterOfMassTransform(transform);
 
-//     // for (const platform of platforms) {
-//     //     // const ms = platform.getMotionState();
-//     //     const transform = platform.getWorldTransform();
-//     //     let q = transform.getRotation();
-//     //     quat.set(1, q.x(), generalGroup.rotation.y, q.z());
-//     //     console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
-//     //     transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
-//     //     platform.setWorldTransform(transform);
-//     // }
+    // for (const platform of platforms) {
+    //     // const ms = platform.getMotionState();
+    //     const transform = platform.getWorldTransform();
+    //     let q = transform.getRotation();
+    //     quat.set(1, q.x(), generalGroup.rotation.y, q.z());
+    //     console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
+    //     transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
+    //     platform.setWorldTransform(transform);
+    // }
 
-//     return false;
-// });
+    return false;
+});
 
 // window.addEventListener( 'pointerdown', function ( event ) {
 
@@ -821,16 +863,18 @@ window.addEventListener('pointerup', function(event) {
 
 window.addEventListener( 'keydown', function ( event ) {
 
+    console.log(ballBounds);
+
     switch ( event.keyCode ) {
         // D
         case 68:
-            armMovement = 1;
-            arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,1,0));
+            ball.position.y += 1;
+            // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,1,0));
             break;
         // A
         case 65:
-            armMovement = - 1;
-            arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,-1,0));
+            ball.position.y -= 1;
+            // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,-1,0));
             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
             break;
     }
@@ -840,6 +884,7 @@ window.addEventListener( 'keydown', function ( event ) {
 window.addEventListener( 'keyup', function () {
 
     // armMovement = 0;
-    arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
+    // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
+    console.log(cubeBounds);
 
 } );
