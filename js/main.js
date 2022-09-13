@@ -27,11 +27,17 @@ const quat = new THREE.Quaternion();
 
 // Game variables
 let pointerDown = false;
+let mouseX = 0, mouseY = 0;
+
 let platforms = [];
 let numDestroyChunksToSpawn = 3;
 
+const chunkSize = twoPi / 8;
+
 const numPlatforms = 15;
 const platformGapSize = 10;
+
+const useOrbitControls = false;
 
 
 // ----------------------------------------------------------------------------------------------------------------
@@ -42,6 +48,9 @@ function getRandomInt(min, max) {
     return Math.floor(Math.random() * (max - min + 1) + min);
 }
 
+function getRandomColor() {
+    return Math.floor(Math.random() * ( 1 << 24 ));
+}
 
 // ----------------------------------------------------------------------------------------------------------------
 // Physics setup
@@ -89,8 +98,9 @@ function setupScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    // const orbit = new OrbitControls(camera, renderer.domElement);
-    // orbit.enableZoom = false;
+    if (useOrbitControls) {
+        const orbit = new OrbitControls(camera, renderer.domElement);
+    }
 
     setupLights(scene);
     setupPhysics();
@@ -122,47 +132,14 @@ function setupLevel(scene) {
 
     generalGroup = new THREE.Group();
     platformGroup = new THREE.Group();
-
-    // Middle cylinder object
-    const middleCylinderRadius = 3;
-    const middleCylinderHeight = 200;
-
-    const data = {
-        radiusTop: middleCylinderRadius,
-        radiusBottom: middleCylinderRadius,
-        height: middleCylinderHeight,
-        radialSegments: 30,
-        heightSegments: 1,
-        openEnded: false,
-        thetaStart: 0,
-        thetaLength: twoPi
-    };
-
-    const cylinderGeometry = new THREE.CylinderGeometry(
-        data.radiusTop,
-        data.radiusBottom,
-        data.height,
-        data.radialSegments,
-        data.heightSegments,
-        data.openEnded,
-        data.thetaStart,
-        data.thetaLength
-    );
-
-    const meshMaterial = new THREE.MeshPhongMaterial({
-        color: 0x711C91,
-        emissive: 0x380034,
-        side: THREE.DoubleSide
-    });
-
-    let cylinderObject = new THREE.Mesh(cylinderGeometry, meshMaterial);
-
-    cylinderObject.position.y = -20;
-    generalGroup.add(cylinderObject);
-
+    ballGroup = new THREE.Group();
 
     scene.add(generalGroup);
     scene.add(platformGroup);
+    scene.add(ballGroup);
+
+    // Central pillar
+    setupPillar();
 
     // Platforms
     setupPlatforms(scene);
@@ -172,6 +149,55 @@ function setupLevel(scene) {
 
     // Skybox
     setupSkybox();
+}
+
+function setupPillar() {
+
+    // Middle pillar object
+    const pillarGeometry = new THREE.CylinderGeometry(
+        3, // radiusTop
+        3, // radiusBottom
+        300, // height
+        30, // radialSegments
+        1, // heightSegments
+        false, // openEnded
+        0, // thetaStart
+        twoPi // thetaLength
+    );
+
+    const pillarMaterial = new THREE.MeshPhongMaterial({
+        color: 0x711C91,
+        emissive: 0x380034,
+        side: THREE.DoubleSide
+    });
+
+    let pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
+    pillar.position.y = -50;
+    generalGroup.add(pillar);
+
+    // Pillar base
+    const baseRadius = 20;
+    const baseHeight = 2;
+
+    const baseGeometry = new THREE.CylinderGeometry(
+        baseRadius, // radiusTop
+        baseRadius, // radiusBottom
+        baseHeight, // height
+        30, // radialSegments
+        1, // heightSegments
+        false, // openEnded
+        0, // thetaStart
+        twoPi // thetaLength
+    );
+
+    let base = new THREE.Mesh(baseGeometry, pillarMaterial);
+    base.position.y = numPlatforms * -platformGapSize;
+    generalGroup.add(base);
+
+    // Create physics object for base to stop the ball
+    const baseShape = new Ammo.btCylinderShape(new Ammo.btVector3(baseRadius, baseHeight * 0.5, 50));
+    baseShape.setMargin(collisionMargin);
+    const ballBody = createRigidBody(base, baseShape, 0);
 }
 
 function setupSkybox() {
@@ -190,10 +216,52 @@ function setupSkybox() {
         return new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide });
     });
 
-    let material = new THREE.MeshBasicMaterial({ color: generateRandomColor() });
+    let material = new THREE.MeshBasicMaterial({ color: getRandomColor() });
     let object = new THREE.Mesh(new THREE.BoxGeometry(1000, 1000, 1000, 1, 1, 1 ), materialArray);
     object.position.set(0, 0, 0);
     generalGroup.add(object);
+}
+
+function setupBall(scene) {
+
+    const ballMass = 5;
+    const ballRadius = 1;
+
+    const ballGeometry = new THREE.SphereGeometry(
+        ballRadius, // radius
+        32, // widthSegments
+        16, // heightSegments
+        0, // phiStart
+        twoPi, // phiLength
+        0, // thetaStart
+        Math.PI // thetaLength
+    )
+
+    const ballMaterial = new THREE.MeshPhongMaterial({
+        color: 0x156289,
+        emissive: 0x091833,
+        side: THREE.DoubleSide,
+        // flatShading: true
+    });
+
+    // Create THREE ball object
+    ball = new THREE.Mesh(ballGeometry, ballMaterial);
+    ball.castShadow = true;
+    ball.position.set(0, 10, 5);
+
+    ballGroup.add(ball);
+
+    // Create ball bounding box
+    ballBounds = new THREE.Sphere(ball.position, ballRadius);
+
+    // Create ball physics object
+    const ballShape = new Ammo.btSphereShape(ballRadius);
+    ballShape.setMargin(collisionMargin);
+
+    const ballBody = createRigidBody(ball, ballShape, ballMass);
+    ballBody.setRestitution(1);
+    ballBody.setLinearVelocity(new Ammo.btVector3(0, -10, 0));
+    // body.setAngularFactor( 0, 1, 0 );
 }
 
 function setupPlatforms(scene) {
@@ -224,8 +292,6 @@ function setupPlatforms(scene) {
 
 function generatePlatform(platformY, hasDestroyChunk) {
 
-    const chunkSize = twoPi / 8;
-
     // Rotations and positions of platform chunks
     const rotations = [
         chunkSize * 1.5,
@@ -241,14 +307,14 @@ function generatePlatform(platformY, hasDestroyChunk) {
     const startPos = new THREE.Vector3(0, 5, 5);
 
     const positions = [
-        new THREE.Vector3(5, 5, 0),
-        new THREE.Vector3(5, 5, -5),
-        new THREE.Vector3(0, 5, -5),
-        new THREE.Vector3(-5, 5, -5),
-        new THREE.Vector3(-5, 5, 0),
-        new THREE.Vector3(-5, 5, 5),
-        new THREE.Vector3(0, 5, 5),
-        new THREE.Vector3(5, 5, 5),
+        new THREE.Vector3(5, platformY, 0),
+        new THREE.Vector3(5, platformY, -5),
+        new THREE.Vector3(0, platformY, -5),
+        new THREE.Vector3(-5, platformY, -5),
+        new THREE.Vector3(-5, platformY, 0),
+        new THREE.Vector3(-5, platformY, 5),
+        new THREE.Vector3(0, platformY, 5),
+        new THREE.Vector3(5, platformY, 5),
     ];
 
     // Remove a random amount of pie chunks from the platform
@@ -276,57 +342,55 @@ function generatePlatform(platformY, hasDestroyChunk) {
         destroyChunkIndex = getRandomInt(0, positions.length - 1);
     }
 
+    // Generate a platform chunk for each of the remaining positions
     for (let i = 0, il = positions.length; i < il; i++) {
 
-        let position = positions[i];
-        let rotationY = rotations[i];
+        let isDestroyChunk = false;
+        if (i === destroyChunkIndex) {
+            isDestroyChunk = true;
+        }
 
-        let chunk = generatePieChunk(rotationY, platformY);
-
-        let material = new THREE.MeshPhongMaterial({ color: 0xFFFFFF });
-        let object = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 2, 1, 1, 1 ), material);
-
-        object.geometry.computeBoundingBox();
-        object.position.set(position.x, platformY, position.z);
-        object.visible = false;
-
-        platformGroup.add(object);
-
-        let cubeBounds = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
-        cubeBounds.setFromObject(object);
-
-        object.userData.cubeBounds = cubeBounds;
-        platforms.push(object);
+        generatePlatformChunk(rotations[i], positions[i], isDestroyChunk);
     }
 }
 
-function generatePieChunk(rotationY, platformY) {
+function generatePlatformChunk(rotationY, position, isDestroyChunk) {
 
-    let color = generateRandomColor();
-    let emissive = generateRandomColor();
-
-    const data = {
-        radius: 9,
-        height: 2,
-        radialSegments: 30,
-        heightSegments: 1,
-        openEnded: false,
-        thetaStart: 0,
-        thetaLength: twoPi / 8
-    };
+    // Generate the platform chunk by creating a cylinder
 
     const cylinderGeometry = new THREE.CylinderGeometry(
-        data.radius,
-        data.radius,
-        data.height,
-        data.radialSegments,
-        data.heightSegments,
-        data.openEnded,
-        data.thetaStart,
-        data.thetaLength
+        9, // radiusTop
+        9, // radiusBottom
+        2, // height
+        30, // radialSegments
+        1, // heightSegments
+        false, // openEnded
+        0, // thetaStart
+        chunkSize // thetaLength
     );
 
-    const meshMaterial = new THREE.MeshPhongMaterial({
+
+
+    let color = 0x0066AF;//getRandomColor();
+    let emissive = 0x003860;//getRandomColor();
+    let boxType = "NORMAL";
+
+    if (isDestroyChunk) {
+        color = 0xED217C;
+        emissive = 0xA81758;
+        boxType = "DESTROY";
+    }
+    else {
+        let choice = getRandomInt(0, 6);
+
+        if (choice === 0) {
+            color = 0xFFFD82;
+            emissive = 0x999727;
+            boxType = "SINK";
+        }
+    }
+
+    const cylinderMaterial = new THREE.MeshPhongMaterial({
         // color: 0x133E7C,
         // emissive: 0x072534,
         color: color,
@@ -334,144 +398,87 @@ function generatePieChunk(rotationY, platformY) {
         side: THREE.DoubleSide
     });
 
-    const object = new THREE.Mesh(cylinderGeometry, meshMaterial);
-    platformGroup.add(object);
+    const chunk = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+    platformGroup.add(chunk);
 
-    object.rotation.y = rotationY;
-    object.position.y = platformY;
+    chunk.castShadow = true;
+    chunk.receiveShadow = true;
 
-    return object;
+    chunk.rotation.y = rotationY;
+    chunk.position.y = position.y;
+
+    // Generate the bounding box for the platform chunk
+
+    let boxMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+    let box = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 2, 1, 1, 1 ), boxMaterial);
+
+    box.geometry.computeBoundingBox();
+    box.position.copy(position);
+    box.visible = false;
+
+    box.userData.boxType = boxType;
+    platformGroup.add(box);
+
+    let cubeBounds = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+    cubeBounds.setFromObject(box);
+    box.userData.cubeBounds = cubeBounds;
+    platforms.push(box);
+
+    return chunk;
 }
 
+function createRigidBody(object, shape, mass) {
 
+    const position = object.position;
+    const quaternion = object.quaternion;
 
-function setupBall(scene) {
-
-    const ballMass = 5;
-    const ballRadius = 1;
-
-    const sphereData = {
-        radius: ballRadius,
-        widthSegments: 32,
-        heightSegments: 16,
-        phiStart: 0,
-        phiLength: twoPi,
-        thetaStart: 0,
-        thetaLength: Math.PI
-    };
-
-    const sphereGeometry = new THREE.SphereGeometry(
-        sphereData.radius, sphereData.widthSegments, sphereData.heightSegments,
-        sphereData.phiStart, sphereData.phiLength, sphereData.thetaStart, sphereData.thetaLength
-    )
-
-    const meshMaterial = new THREE.MeshPhongMaterial({
-        color: 0x156289,
-        emissive: 0x091833,
-        side: THREE.DoubleSide,
-        // flatShading: true
-    });
-
-    
-    // const ballMaterial = new THREE.MeshBasicMaterial( { color: 0xffff00 } );
-    ball = new THREE.Mesh(sphereGeometry, meshMaterial);
-    const ballShape = new Ammo.btSphereShape(sphereData.radius);
-    ballShape.setMargin(collisionMargin);
-
-    ball.castShadow = true;
-    ball.receiveShadow = true;
-
-    pos.set(0, 10, 5);
-    ball.position.copy(pos);
-
-    ballBounds = new THREE.Sphere(pos, ballRadius);
-
-    quat.set(0, 0, 0, 1);
-    const ballBody = createRigidBody(ball, ballShape, ballMass, pos, quat);
-
-    ballBody.setRestitution(1);
-    // pos.copy( raycaster.ray.direction );
-    // pos.add( raycaster.ray.origin );
-
-    pos.set(0, -5, 0);
-    pos.multiplyScalar(2);
-    ballBody.setLinearVelocity(new Ammo.btVector3(pos.x, pos.y, pos.z));
-
-    ballGroup = new THREE.Group();
-    ballGroup.add(ball);
-    scene.add(ballGroup);
-}
-
-function createRigidBody(object, physicsShape, mass, pos, quat, vel, angVel) {
-
-    if (pos) {
-        object.position.copy(pos);
-    } else {
-        pos = object.position;
-    }
-
-    if (quat) {
-        object.quaternion.copy(quat);
-    } else {
-        quat = object.quaternion;
-    }
-
-    const transform = new Ammo.btTransform();
-    transform.setIdentity();
-    transform.setOrigin(new Ammo.btVector3(pos.x, pos.y, pos.z));
-    transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
-    const motionState = new Ammo.btDefaultMotionState(transform);
+    const bodyTransform = new Ammo.btTransform();
+    bodyTransform.setIdentity();
+    bodyTransform.setOrigin(new Ammo.btVector3(position.x, position.y, position.z));
+    bodyTransform.setRotation(new Ammo.btQuaternion(quaternion.x, quaternion.y, quaternion.z, quaternion.w));
+    const motionState = new Ammo.btDefaultMotionState(bodyTransform);
 
     const localInertia = new Ammo.btVector3(0, 0, 0);
-    physicsShape.calculateLocalInertia(mass, localInertia);
+    shape.calculateLocalInertia(mass, localInertia);
 
-    const rbInfo = new Ammo.btRigidBodyConstructionInfo(mass, motionState, physicsShape, localInertia);
-    const body = new Ammo.btRigidBody(rbInfo);
+    const info = new Ammo.btRigidBodyConstructionInfo(mass, motionState, shape, localInertia);
+    const body = new Ammo.btRigidBody(info);
 
     body.setFriction(0.5);
-    // body.setAngularFactor( 0, 1, 0 );
-    // body.setRollingFriction(10);
-
-    if (vel) {
-        body.setLinearVelocity(new Ammo.btVector3(vel.x, vel.y, vel.z));
-    }
-
-    if (angVel) {
-        body.setAngularVelocity(new Ammo.btVector3(angVel.x, angVel.y, angVel.z));
-    }
-
     object.userData.physicsBody = body;
-
-    // scene.add(object);
 
     if (mass > 0) {
 
         rigidBodies.push(object);
-
-        // Disable deactivation
-        body.setActivationState(4);
+        body.setActivationState(4); // Disable deactivation
     }
 
     physicsWorld.addRigidBody(body);
     return body;
-
-}
-
-function generateRandomColor() {
-
-    return Math.floor(Math.random() * ( 1 << 24 ));
 }
 
 function checkCollisions() {
 
     for (const platform of platforms) {
+
         const cubeBounds = platform.userData.cubeBounds;
+        const boxType = platform.userData.boxType;
         cubeBounds.copy(platform.geometry.boundingBox).applyMatrix4(platform.matrixWorld);
 
+        // Bounce the ball if it intersects with any of the bounding cubes
         if (ballBounds.intersectsBox(cubeBounds)) {
-            // ball.material.opacity = 0.1;
-            ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,15,0));
-            // console.log("SDFSDF");
+
+            // Game over
+            if (boxType === "DESTROY") {
+                ball.visible = false;
+                ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,0,0));
+            }
+            else if (boxType === "SINK") {
+                ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,-5,0));
+            }
+            else {
+                ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,15,0));
+            }
         }
     }
 }
@@ -479,13 +486,6 @@ function checkCollisions() {
 function animate() {
 
     ballBounds.copy(ball.geometry.boundingSphere).applyMatrix4(ball.matrixWorld);
-
-    const MEOW = 10;
-
-    if (camera.position.y - ball.position.y >= MEOW) {
-        camera.position.y -= 1;
-        // camera.lookAt(ball.position);
-    }
 
     checkCollisions();
 
@@ -498,16 +498,18 @@ function render() {
     const deltaTime = clock.getDelta();
     updatePhysics(deltaTime);
 
+    const MEOW = 5;
+
+    if (!useOrbitControls && camera.position.y - ball.position.y >= MEOW) {
+        let velocity = ball.userData.physicsBody.getLinearVelocity().y();
+        camera.position.y  -= 1;//+= deltaTime * velocity * 0.5;
+        // camera.lookAt(ball.position);
+    }
+
     renderer.render(scene, camera);
-    // camera.lookAt(ballGroup.position);
 }
 
 function updatePhysics(deltaTime) {
-
-    // Hinge control
-    // if (pointerDown) {
-    //     hinge.enableAngularMotor( true, 1.5 * armMovement, 50 );
-    // }
 
     // Step world
     physicsWorld.stepSimulation(deltaTime * 2, 10);
@@ -525,7 +527,6 @@ function updatePhysics(deltaTime) {
             const q = transform.getRotation();
             objThree.position.set(p.x(), p.y(), p.z());
             objThree.quaternion.set(q.x(), q.y(), q.z(), q.w());
-            // camera.position.y = p.y();
         }
     }
 }
@@ -539,9 +540,6 @@ window.addEventListener('resize', function () {
 }, false);
 
 
-const raycaster = new THREE.Raycaster();
-let mouseX = 0, mouseY = 0;
-
 window.addEventListener('pointerdown', function(event) {
 
     event.preventDefault();
@@ -551,8 +549,6 @@ window.addEventListener('pointerdown', function(event) {
     mouseY = event.clientY;
     return false;
 });
-
-let rot = new THREE.Vector3(0,0,0);
 
 window.addEventListener('pointerup', function(event) {
 
@@ -576,64 +572,23 @@ window.addEventListener('pointermove', function(event) {
     mouseY = event.clientY;
 
     platformGroup.rotation.y -= deltaX / 100;
-    // arm.rotation.y -= deltaX / 50;
-    // var euler = new THREE.Euler(arm.rotation.x,arm.rotation.y,arm.rotation.z);
-    // quat.setFromEuler(euler);
-    // // console.log(boop.rotation);
-    // // console.log(boop.quaternion);
-    // setObjectRotation(arm, quat);
-    // rot.set(0,deltaX/2,0);
-    // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(rot.x, rot.y, rot.z));
-    // ballGroup.rotation.y -= deltaX / 50;
-
-    // const transform = ball.userData.physicsBody.getCenterOfMassTransform();
-    // let q = transform.getRotation();
-    // console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
-
-    // var euler = new THREE.Euler(generalGroup.rotation.x,generalGroup.rotation.y,generalGroup.rotation.z);
-    // quat.setFromEuler(euler);
-    // // quat.set(q.x(), q.y() - deltaX / 50, q.z(), 1);
-    // transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
-    // ball.userData.physicsBody.setCenterOfMassTransform(transform);
-
-    // for (const platform of platforms) {
-    //     // const ms = platform.getMotionState();
-    //     const transform = platform.getWorldTransform();
-    //     let q = transform.getRotation();
-    //     quat.set(1, q.x(), generalGroup.rotation.y, q.z());
-    //     console.log(q.x() + " " + q.y() + " " + q.z() + " " + q.w());
-    //     transform.setRotation(new Ammo.btQuaternion(quat.x, quat.y, quat.z, quat.w));
-    //     platform.setWorldTransform(transform);
-    // }
-
     return false;
 });
 
-window.addEventListener( 'keydown', function ( event ) {
+// window.addEventListener( 'keydown', function ( event ) {
 
-    // console.log(ballBounds);
+//     switch ( event.keyCode ) {
+//         // D
+//         case 68:
+//             camera.position.y += 1;
+//             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,1,0));
+//             break;
+//         // A
+//         case 65:
+//             camera.position.y -= 1;
+//             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,-1,0));
+//             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
+//             break;
+//     }
 
-    switch ( event.keyCode ) {
-        // D
-        case 68:
-            camera.position.y += 1;
-            // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,1,0));
-            break;
-        // A
-        case 65:
-            camera.position.y -= 1;
-            // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,-1,0));
-            // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
-            break;
-    }
-
-} );
-
-window.addEventListener( 'keyup', function () {
-
-    console.log(camera.position.y - ball.position.y);
-    // armMovement = 0;
-    // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
-    // console.log(cubeBounds);
-
-} );
+// } );
