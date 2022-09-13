@@ -63,7 +63,7 @@ function setupScene() {
     scene.background = new THREE.Color(0x444444);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 200);
-    camera.position.y = 12;
+    camera.position.y = 15;
     camera.position.x = 4;
     camera.position.z = 20;
 
@@ -79,6 +79,8 @@ function setupScene() {
     setupPhysics();
 
     setupLevel(scene);
+
+    camera.lookAt(ball.position);
 
     render();
 }
@@ -104,10 +106,13 @@ function setupLevel(scene) {
     generalGroup = new THREE.Group();
 
     // Middle cylinder object
+    const middleCylinderRadius = 3;
+    const middleCylinderHeight = 200;
+
     const data = {
-        radiusTop: 3,
-        radiusBottom: 3,
-        height: 200,
+        radiusTop: middleCylinderRadius,
+        radiusBottom: middleCylinderRadius,
+        height: middleCylinderHeight,
         radialSegments: 30,
         heightSegments: 1,
         openEnded: false,
@@ -123,21 +128,22 @@ function setupLevel(scene) {
         data.heightSegments,
         data.openEnded,
         data.thetaStart,
-        data.thetaLength,
+        data.thetaLength
     );
 
     const meshMaterial = new THREE.MeshPhongMaterial({
         color: 0x711C91,
         emissive: 0x380034,
-        side: THREE.DoubleSide,
+        side: THREE.DoubleSide
     });
 
     let cylinderObject = new THREE.Mesh(cylinderGeometry, meshMaterial);
 
+    cylinderObject.position.y = -20;
     generalGroup.add(cylinderObject);
-    scene.add(generalGroup);
 
-    cylinderObject.position.y = -30;
+
+    scene.add(generalGroup);
 
     // Platforms
     setupPlatforms(scene);
@@ -151,11 +157,10 @@ function setupPlatforms(scene) {
     const numPlatforms = 10;
     const gapSize = -11;
 
-    // for (let i = 0; i < numPlatforms; i++) {
+    for (let i = 0; i < numPlatforms; i++) {
 
-    let i = 0;
-    generatePlatform(1);
-    // }
+        generatePlatform(i * gapSize);
+    }
 
     // object.rotation.y = Math.PI;
     // const platformGroup = new THREE.Group();
@@ -173,26 +178,27 @@ function generatePlatform(platformY) {
 
     let chunkSize = twoPi / 8;
 
-    const possibleRotations = [
-        0,
-        chunkSize,
-        chunkSize * 2,
-        chunkSize * 3,
-        chunkSize * 4,
-        chunkSize * 5,
-        chunkSize * 6,
-        chunkSize * 7,
+    const rotations = [
+        // 0,
+        chunkSize * 1.5,
+        chunkSize * 8.5,
+        chunkSize * 2.5,
+        chunkSize * 7.5,
+        chunkSize * 3.5,
+        chunkSize * 4.5,
+        chunkSize * 5.5,
+        chunkSize * 6.5,
     ];
 
     const positions = [
         new THREE.Vector3(5, 5, 0),
         new THREE.Vector3(5, 5, 5),
         new THREE.Vector3(5, 5, -5),
-        new THREE.Vector3(-5, 5, 0),
-        new THREE.Vector3(-5, 5, -5),
-        new THREE.Vector3(-5, 5, 5),
         new THREE.Vector3(0, 5, 5),
         new THREE.Vector3(0, 5, -5),
+        new THREE.Vector3(-5, 5, -5),
+        new THREE.Vector3(-5, 5, 0),
+        new THREE.Vector3(-5, 5, 5),
     ];
 
     const maxChunksToRemove = 4;
@@ -201,34 +207,38 @@ function generatePlatform(platformY) {
     while (chunksToRemove > 0) {
 
         let randomIndex = getRandomInt(0,  positions.length);
+
+        // Never remove the first piece when on the first platform
+        if (randomIndex === 0 && platformY === 0) {
+            continue;
+        }
+
         positions.splice(randomIndex, 1);
+        rotations.splice(randomIndex, 1);
         chunksToRemove -= 1;
     }
 
-    // for (let rotationY of possibleRotations) {
-    for (let position of positions) {
+    // for (let rotationY of rotations) {
+    for (let i = 0, il = positions.length; i < il; i++) {
+    // for (let position of positions) {
 
-        // let chunk = generatePieChunk(rotationY);
+        let position = positions[i];
+        let rotationY = rotations[i];
+
+        let chunk = generatePieChunk(rotationY, platformY);
         // generalGroup.add(chunk);
-        // chunk.rotation.y = rotationY;
-        // chunk.position.y = platformY;
 
-        let sx = 5;
+        let sx = 3;
         let sy = 1;
-        let sz = 5;
+        let sz = 3;
         let material = new THREE.MeshPhongMaterial({ color: 0xFFFFFF });
 
         let object = new THREE.Mesh(new THREE.BoxGeometry(sx, sy, sz, 1, 1, 1 ), material);
         // const shape = new Ammo.btBoxShape(new Ammo.btVector3(sx * 0.5, sy * 0.5, sz * 0.5 ));
         // shape.setMargin(margin);
+
         object.geometry.computeBoundingBox();
-        object.position.copy(position);
-        // object.rotation.y = rotationY;
-        // object.position.x = 5;
-        // let box = bloop.geometry.boundingBox;
-        // let min = new THREE.Vector3(box.min.x * 0.5, box.min.y * 0.5, box.min.z * 0.5);
-        // let max = new THREE.Vector3(box.max.x * 0.5, box.max.y * 0.5, box.max.z * 0.5);
-        // console.log(box)
+        object.position.set(position.x, platformY, position.z);
 
         generalGroup.add(object);
 
@@ -237,19 +247,14 @@ function generatePlatform(platformY) {
         // );
         let cubeBounds = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
         cubeBounds.setFromObject(object);
+        // object.rotation.y = Math.PI / 2;
 
         object.userData.cubeBounds = cubeBounds;
         platforms.push(object);
-        // break;
-        // console.log(cubeBounds);
     }
-
-    // chunk = generatePieChunk();
-    // chunk.rotation.y = Math.PI;
-    // generalGroup.add(chunk);
 }
 
-function generatePieChunk(rotationY) {
+function generatePieChunk(rotationY, platformY) {
 
     let color = generateRandomColor();
     let emissive = generateRandomColor();
@@ -286,6 +291,8 @@ function generatePieChunk(rotationY) {
     const object = new THREE.Mesh(cylinderGeometry, meshMaterial);
     generalGroup.add(object);
     object.rotation.y = rotationY;
+    object.position.y = platformY;
+    return object;
 
     // const shape = new Ammo.btCylinderShape(
     //     new Ammo.btVector3(data.radius, data.height * 0.5, 50)
@@ -339,46 +346,41 @@ function generatePieChunk(rotationY) {
     geometry.setAttribute('position', new THREE.BufferAttribute(collisionPoints, 3));
     const material = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide });
     const mesh = new THREE.Mesh(geometry, material);
+    mesh.position.copy(position);
     // mesh.position.z = object.position.z;
-    // mesh.rotation.x = Math.PI / 2;
+    // mesh.position.set(new THREE.Vector3(0,0,0));
+    mesh.rotation.x = Math.PI / 2;
+
+    // geometry.computeBoundingBox();
+    // console.log(geometry.boundingBox);
     // mesh.rotation.y = rotationY;
     // mesh.quaternion.y = Math.PI / 2;
     // mesh.rotateOnAxis( new THREE.Vector3( 0, 1, 0 ), rotationY );
     // console.log(mesh.quaternion);
     generalGroup.add(mesh);
 
-    const triangleMesh = new Ammo.btTriangleMesh();
-    const numTriangles = collisionPoints.length / 3 / 3;
+    let cubeBounds = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+    cubeBounds.setFromObject(mesh);
+    mesh.userData.cubeBounds = cubeBounds;
 
-    for (let i = 0; i < numTriangles; i++) {
+    // const triangleMesh = new Ammo.btTriangleMesh();
+    // const numTriangles = collisionPoints.length / 3 / 3;
 
-        let pointOne = new Ammo.btVector3(collisionPoints[i], collisionPoints[i+1], collisionPoints[i+2]);
-        let pointTwo = new Ammo.btVector3(collisionPoints[i+3], collisionPoints[i+4], collisionPoints[i+5]);
-        let pointThree = new Ammo.btVector3(collisionPoints[i+6], collisionPoints[i+7], collisionPoints[i+8]);
+    // for (let i = 0; i < numTriangles; i++) {
 
-        triangleMesh.addTriangle(pointOne, pointTwo, pointThree);
-    }
+    //     let pointOne = new Ammo.btVector3(collisionPoints[i], collisionPoints[i+1], collisionPoints[i+2]);
+    //     let pointTwo = new Ammo.btVector3(collisionPoints[i+3], collisionPoints[i+4], collisionPoints[i+5]);
+    //     let pointThree = new Ammo.btVector3(collisionPoints[i+6], collisionPoints[i+7], collisionPoints[i+8]);
 
-    const shape = new Ammo.btBvhTriangleMeshShape(triangleMesh, true, true);
-    shape.setMargin(margin);
+    //     triangleMesh.addTriangle(pointOne, pointTwo, pointThree);
+    // }
 
-    const mass = 0;
-    pos.set(object.position.x, object.position.y, object.position.z);
-    // quat.set(0, 0, 0, 1);
-    // quat.set(mesh.quaternion.x, mesh.quaternion.y, mesh.quaternion.z, 1);
-    // quat.set(Math.PI / 2, mesh.rotation.y, mesh.rotation.z, 1);
-    // quat.set(Math.PI / 5, 0, 0, 1);
+    // const shape = new Ammo.btBvhTriangleMeshShape(triangleMesh, true, true);
+    // shape.setMargin(margin);
 
-    quat.setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI / 2);
+    // pos.set(object.position.x, object.position.y, object.position.z);
 
-    // quat = new Ammo.btQuaternion(new Ammo.btVector3(0,1,0),-Math.PI/2)
-    // let fuck = new Ammo.btQuaternion(new Ammo.btVector3(0,1,0),-Math.PI/2);
-
-    let body = createRigidBody(mesh, shape, mass, pos, quat);
-    // let body = createRigidBody(object, shape, mass, null, null);
-    body.setRestitution(0.8);
-    platforms.push(body);
-
+    platforms.push(mesh);
     return mesh;
 }
 
@@ -418,7 +420,7 @@ function setupBall(scene) {
     ball.castShadow = true;
     ball.receiveShadow = true;
 
-    pos.set(5, 10, 0);
+    pos.set(0, 10, 5);
     ball.position.copy(pos);
 
     ballBounds = new THREE.Sphere(pos, ballRadius);
@@ -508,7 +510,7 @@ function checkCollisions() {
         if (ballBounds.intersectsBox(cubeBounds)) {
             // ball.material.opacity = 0.1;
             ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,15,0));
-            console.log("SDFSDF");
+            // console.log("SDFSDF");
         }
     }
 }
@@ -516,6 +518,13 @@ function checkCollisions() {
 function animate() {
 
     ballBounds.copy(ball.geometry.boundingSphere).applyMatrix4(ball.matrixWorld);
+
+    // const MEOW = 10;
+
+    // if (camera.position.y - ball.position.y >= MEOW) {
+    //     camera.position.y -= 1;
+    //     // camera.lookAt(ball.position);
+    // }
 
     checkCollisions();    
 
@@ -695,30 +704,31 @@ window.addEventListener('pointermove', function(event) {
     return false;
 });
 
-// window.addEventListener( 'keydown', function ( event ) {
+window.addEventListener( 'keydown', function ( event ) {
 
-//     console.log(ballBounds);
+    // console.log(ballBounds);
 
-//     switch ( event.keyCode ) {
-//         // D
-//         case 68:
-//             ball.position.y += 1;
-//             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,1,0));
-//             break;
-//         // A
-//         case 65:
-//             ball.position.y -= 1;
-//             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,-1,0));
-//             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
-//             break;
-//     }
+    switch ( event.keyCode ) {
+        // D
+        case 68:
+            camera.position.y += 1;
+            // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,1,0));
+            break;
+        // A
+        case 65:
+            camera.position.y -= 1;
+            // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,-1,0));
+            // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
+            break;
+    }
 
-// } );
+} );
 
-// window.addEventListener( 'keyup', function () {
+window.addEventListener( 'keyup', function () {
 
-//     // armMovement = 0;
-//     // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
-//     // console.log(cubeBounds);
+    console.log(camera.position.y - ball.position.y);
+    // armMovement = 0;
+    // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
+    // console.log(cubeBounds);
 
-// } );
+} );
