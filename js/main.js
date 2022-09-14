@@ -304,7 +304,7 @@ function generatePlatform(platformY, hasDestroyChunk) {
         chunkSize * 8.5,
     ];
 
-    const startPos = new THREE.Vector3(0, 5, 5);
+    const startPos = new THREE.Vector3(0, platformY, 5);
 
     const positions = [
         new THREE.Vector3(5, platformY, 0),
