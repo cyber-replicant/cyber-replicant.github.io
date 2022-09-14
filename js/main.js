@@ -89,9 +89,9 @@ function setupScene() {
     scene.background = new THREE.Color(0x444444);
 
     camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 30000);
-    camera.position.y = 15;
+    camera.position.y = 18;
     camera.position.x = 4;
-    camera.position.z = 20;
+    camera.position.z = 25;
 
     renderer = new THREE.WebGLRenderer({ antialias: true });
     renderer.setPixelRatio(window.devicePixelRatio);
@@ -358,18 +358,19 @@ function generatePlatformChunk(rotationY, position, isDestroyChunk) {
 
     // Generate the platform chunk by creating a cylinder
 
+    const cylinderRadius = 9;
+    const cylinderHeight = 2;
+
     const cylinderGeometry = new THREE.CylinderGeometry(
-        9, // radiusTop
-        9, // radiusBottom
-        2, // height
+        cylinderRadius, // radiusTop
+        cylinderRadius, // radiusBottom
+        cylinderHeight, // height
         30, // radialSegments
         1, // heightSegments
         false, // openEnded
         0, // thetaStart
         chunkSize // thetaLength
     );
-
-
 
     let color = 0x0066AF;//getRandomColor();
     let emissive = 0x003860;//getRandomColor();
@@ -423,6 +424,34 @@ function generatePlatformChunk(rotationY, position, isDestroyChunk) {
     cubeBounds.setFromObject(box);
     box.userData.cubeBounds = cubeBounds;
     platforms.push(box);
+
+    // Draw shapes to fill the sides of the pie chunk
+    const chunkLeftEnd = cylinderRadius - 2.6;
+
+    const points = new Float32Array([
+        0, -1, 0,
+        chunkLeftEnd, -1, chunkLeftEnd,
+        0, 1, 0,
+
+        chunkLeftEnd, -1, chunkLeftEnd,
+        0, 1, 0,
+        chunkLeftEnd, 1, chunkLeftEnd,
+
+        0, -1, 0,
+        0, -1, cylinderRadius,
+        0, 1, 0,
+
+        0, -1, cylinderRadius,
+        0, 1, 0,
+        0, 1, cylinderRadius,
+    ]);
+
+    const sidesGeometry = new THREE.BufferGeometry();
+
+    sidesGeometry.setAttribute('position', new THREE.BufferAttribute(points, 3));
+    const sidesMaterial = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide });
+    const sides = new THREE.Mesh(sidesGeometry, sidesMaterial);
+    chunk.add(sides);
 
     return chunk;
 }
