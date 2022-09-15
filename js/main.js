@@ -381,15 +381,15 @@ function generatePlatformChunk(rotationY, position, isDestroyChunk) {
         emissive = 0xA81758;
         boxType = "DESTROY";
     }
-    else {
-        let choice = getRandomInt(0, 6);
+    // else {
+    //     let choice = getRandomInt(0, 6);
 
-        if (choice === 0) {
-            color = 0xFFFD82;
-            emissive = 0x999727;
-            boxType = "SINK";
-        }
-    }
+    //     if (choice === 0) {
+    //         color = 0xFFFD82;
+    //         emissive = 0x999727;
+    //         boxType = "SINK";
+    //     }
+    // }
 
     const cylinderMaterial = new THREE.MeshPhongMaterial({
         // color: 0x133E7C,
