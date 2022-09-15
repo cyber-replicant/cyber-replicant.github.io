@@ -26,6 +26,13 @@ const pos = new THREE.Vector3();
 const quat = new THREE.Quaternion();
 
 // Game variables
+let comboScore = 0;
+
+// The level at which the score was most recently reset
+let lastScoreReset = 0;
+
+let isGameOver = false;
+
 let pointerDown = false;
 let mouseX = 0, mouseY = 0;
 
@@ -39,6 +46,34 @@ const platformGapSize = 10;
 
 const useOrbitControls = false;
 
+const platformColors = [
+    {
+        "color": 0x0066AF,
+        "emissive": 0x003860,
+    },
+    {
+        "color": 0xED217C,
+        "emissive": 0xA81758,
+    },
+    {
+        "color": 0x0066AF,
+        "emissive": 0x003860,
+    },
+    {
+        "color": 0x0dab76,
+        "emissive": 0x097853,
+    },
+];
+
+const destroyColor = {
+    "color": 0x000000,
+    "emissive": 0x01110c,
+};
+
+const doubleComboColor = {
+    "color": 0xffffff,
+    "emissive": 0xffffff,
+};
 
 // ----------------------------------------------------------------------------------------------------------------
 // Helpers functions
@@ -51,6 +86,18 @@ function getRandomInt(min, max) {
 function getRandomColor() {
     return Math.floor(Math.random() * ( 1 << 24 ));
 }
+
+function shuffleArray(array) {
+
+  for (let i = array.length - 1; i > 0; i--) {
+
+    const j = Math.floor(Math.random() * (i + 1));
+    const temp = array[i];
+    array[i] = array[j];
+    array[j] = temp;
+  }
+}
+
 
 // ----------------------------------------------------------------------------------------------------------------
 // Physics setup
@@ -142,7 +189,7 @@ function setupLevel(scene) {
     setupPillar();
 
     // Platforms
-    setupPlatforms(scene);
+    setupPlatforms();
 
     // Ball
     setupBall(scene);
@@ -264,7 +311,7 @@ function setupBall(scene) {
     // body.setAngularFactor( 0, 1, 0 );
 }
 
-function setupPlatforms(scene) {
+function setupPlatforms() {
 
     let destroyChunks = {};
 
@@ -335,26 +382,39 @@ function generatePlatform(platformY, hasDestroyChunk) {
         numChunksToRemove -= 1;
     }
 
-    // If a destroy chunk exists on this platform, choose a random place for it
-    let destroyChunkIndex = -1;
+    // Generate array of chunk types
+    const hasDoubleCombo = getRandomInt(0, 2);
+    let chunkColors = [];
 
-    if (hasDestroyChunk === true) {
-        destroyChunkIndex = getRandomInt(0, positions.length - 1);
+    if (hasDestroyChunk) {
+        chunkColors.push(destroyColor);
     }
+
+    if (hasDoubleCombo === 0) {
+        chunkColors.push(doubleComboColor);
+    }
+
+    const numColorsToSelect = positions.length - chunkColors.length;
+    const numColors = Object.keys(platformColors).length - 1;
+
+    [0, 1, 2, 3];
+
+    for (let i = 0, il = positions.length - chunkColors.length; i < il; i++) {
+        const colorIndex = getRandomInt(0, numColors);
+        chunkColors.push(platformColors[colorIndex]);
+    }
+
+    shuffleArray(chunkColors);
 
     // Generate a platform chunk for each of the remaining positions
     for (let i = 0, il = positions.length; i < il; i++) {
 
-        let isDestroyChunk = false;
-        if (i === destroyChunkIndex) {
-            isDestroyChunk = true;
-        }
-
-        generatePlatformChunk(rotations[i], positions[i], isDestroyChunk);
+        let colorData = chunkColors[i];
+        generatePlatformChunk(rotations[i], positions[i], colorData);
     }
 }
 
-function generatePlatformChunk(rotationY, position, isDestroyChunk) {
+function generatePlatformChunk(rotationY, position, colorData) {
 
     // Generate the platform chunk by creating a cylinder
 
@@ -372,31 +432,10 @@ function generatePlatformChunk(rotationY, position, isDestroyChunk) {
         chunkSize // thetaLength
     );
 
-    let color = 0x0066AF;//getRandomColor();
-    let emissive = 0x003860;//getRandomColor();
-    let boxType = "NORMAL";
-
-    if (isDestroyChunk) {
-        color = 0xED217C;
-        emissive = 0xA81758;
-        boxType = "DESTROY";
-    }
-    // else {
-    //     let choice = getRandomInt(0, 6);
-
-    //     if (choice === 0) {
-    //         color = 0xFFFD82;
-    //         emissive = 0x999727;
-    //         boxType = "SINK";
-    //     }
-    // }
-
     const cylinderMaterial = new THREE.MeshPhongMaterial({
-        // color: 0x133E7C,
-        // emissive: 0x072534,
-        color: color,
-        emissive: emissive,
-        side: THREE.DoubleSide
+        color: colorData["color"],
+        emissive: colorData["emissive"],
+        side: THREE.DoubleSide,
     });
 
     const chunk = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
@@ -417,7 +456,7 @@ function generatePlatformChunk(rotationY, position, isDestroyChunk) {
     box.position.copy(position);
     box.visible = false;
 
-    box.userData.boxType = boxType;
+    box.userData.color = colorData["color"];
     platformGroup.add(box);
 
     let cubeBounds = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
@@ -449,7 +488,10 @@ function generatePlatformChunk(rotationY, position, isDestroyChunk) {
     const sidesGeometry = new THREE.BufferGeometry();
 
     sidesGeometry.setAttribute('position', new THREE.BufferAttribute(points, 3));
-    const sidesMaterial = new THREE.MeshBasicMaterial({ color: color, side: THREE.DoubleSide });
+    const sidesMaterial = new THREE.MeshBasicMaterial({
+        color: colorData["color"],
+        side: THREE.DoubleSide
+    });
     const sides = new THREE.Mesh(sidesGeometry, sidesMaterial);
     chunk.add(sides);
 
@@ -491,28 +533,36 @@ function checkCollisions() {
     for (const platform of platforms) {
 
         const cubeBounds = platform.userData.cubeBounds;
-        const boxType = platform.userData.boxType;
+        const color = platform.userData.color;
         cubeBounds.copy(platform.geometry.boundingBox).applyMatrix4(platform.matrixWorld);
 
         // Bounce the ball if it intersects with any of the bounding cubes
         if (ballBounds.intersectsBox(cubeBounds)) {
 
             // Game over
-            if (boxType === "DESTROY") {
-                ball.visible = false;
-                ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,0,0));
+            if (color === destroyColor.color) {
+                // ball.visible = false;
+                ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,5,0));
+                document.getElementById("uiGameOver").style.display = "block";
+                isGameOver = true;
             }
-            else if (boxType === "SINK") {
-                ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,-5,0));
+            else if (color === doubleComboColor.color) {
+                ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,15,0));
+
             }
             else {
                 ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,15,0));
+                lastScoreReset = platform.position.y;
             }
         }
     }
 }
 
 function animate() {
+
+    if (isGameOver) {
+        return;
+    }
 
     ballBounds.copy(ball.geometry.boundingSphere).applyMatrix4(ball.matrixWorld);
 
@@ -525,6 +575,10 @@ function animate() {
 function render() {
 
     const deltaTime = clock.getDelta();
+
+    comboScore = 1+Math.floor((lastScoreReset - ball.position.y) / platformGapSize);
+    document.getElementById("uiComboScore").innerHTML = comboScore;
+
     updatePhysics(deltaTime);
 
     const MEOW = 5;
