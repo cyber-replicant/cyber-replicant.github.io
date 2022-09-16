@@ -661,8 +661,12 @@ function animate() {
 function render() {
 
     const deltaTime = clock.getDelta();
+    const velocity = ballBody.getLinearVelocity().y();
 
-    comboScore = 1+Math.floor((lastScoreReset - ball.position.y) / platformGapSize);
+    comboScore = 1 + Math.floor((lastScoreReset - ball.position.y) / platformGapSize);
+    velocity *= (comboScore * 0.1);
+    ballBody.setLinearVelocity(new Ammo.btVector3(0, velocity, 0));
+
     document.getElementById("uiComboScore").innerHTML = comboScore;
     document.getElementById("uiTotalScore").innerHTML = totalScore;
     document.getElementById("uiScoreModifier").innerHTML = "x" + scoreModifier;
@@ -678,7 +682,7 @@ function render() {
         // camera.position.y += (deltaTime * velocity) - 1;
 
         // cmaer
-        console.log(camera.position.y - ball.position.y);
+        // console.log(camera.position.y - ball.position.y);
         camera.position.y -= 1;//+= deltaTime * velocity * 0.5;
         // camera.lookAt(ball.position);
     }
@@ -740,7 +744,7 @@ window.addEventListener('pointermove', function(event) {
     mouseX = event.clientX;
     mouseY = event.clientY;
 
-    platformGroup.rotation.y -= deltaX / 50;
+    platformGroup.rotation.y -= deltaX / 5;
 });
 
 
