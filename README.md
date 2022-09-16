@@ -1,2 +1,2 @@
-# lucky-kat
-The Lucky Kat code audition game
+# Helix
+Helix code audition game
