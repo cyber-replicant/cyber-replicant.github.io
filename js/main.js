@@ -719,20 +719,14 @@ window.addEventListener('resize', function () {
 
 window.addEventListener('pointerdown', function(event) {
 
-    event.preventDefault();
-
     pointerDown = true;
     mouseX = event.clientX;
     mouseY = event.clientY;
-    return false;
 });
 
 window.addEventListener('pointerup', function(event) {
 
-    event.preventDefault();
-
     pointerDown = false;
-    return false;
 });
 
 window.addEventListener('pointermove', function(event) {
@@ -741,53 +735,50 @@ window.addEventListener('pointermove', function(event) {
         return;
     }
 
-    event.preventDefault();
-
     let deltaX = event.clientX - mouseX;
     let deltaY = event.clientY - mouseY;
     mouseX = event.clientX;
     mouseY = event.clientY;
 
     platformGroup.rotation.y -= deltaX / 50;
-    return false;
 });
 
 
 
-window.addEventListener('touchstart', function(event) {
+// window.addEventListener('touchstart', function(event) {
 
-    event.preventDefault();
+//     event.preventDefault();
 
-    pointerDown = true;
-    mouseX = event.clientX;
-    mouseY = event.clientY;
-    return false;
-});
+//     pointerDown = true;
+//     mouseX = event.clientX;
+//     mouseY = event.clientY;
+//     return false;
+// });
 
-window.addEventListener('touchend', function(event) {
+// window.addEventListener('touchend', function(event) {
 
-    event.preventDefault();
+//     event.preventDefault();
 
-    pointerDown = false;
-    return false;
-});
+//     pointerDown = false;
+//     return false;
+// });
 
-window.addEventListener('touchmove', function(event) {
+// window.addEventListener('touchmove', function(event) {
 
-    if (!pointerDown) {
-        return;
-    }
+//     if (!pointerDown) {
+//         return;
+//     }
 
-    event.preventDefault();
+//     event.preventDefault();
 
-    let deltaX = event.clientX - mouseX;
-    let deltaY = event.clientY - mouseY;
-    mouseX = event.clientX;
-    mouseY = event.clientY;
+//     let deltaX = event.clientX - mouseX;
+//     let deltaY = event.clientY - mouseY;
+//     mouseX = event.clientX;
+//     mouseY = event.clientY;
 
-    platformGroup.rotation.y -= deltaX / 50;
-    return false;
-});
+//     platformGroup.rotation.y -= deltaX / 50;
+//     return false;
+// });
 
 // window.addEventListener( 'keydown', function ( event ) {
 
