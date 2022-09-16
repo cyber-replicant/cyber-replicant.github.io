@@ -45,31 +45,6 @@ let breakingPlatforms = [];
 const chunkSize = twoPi / 8;
 const platformGapSize = 11;
 
-const searchParams = new URLSearchParams(window.location.search);
-
-let level = 1;
-let numPlatforms = 20;
-let numDestroyChunksToSpawn = 2;
-let numDoubleComboChunksToSpawn = 3;
-
-if (searchParams.has("level")) {
-    level = parseInt(searchParams.get("level"));
-
-    // Add 10 extra platforms per level
-    numPlatforms += (level - 1) * 10;
-
-    numDestroyChunksToSpawn += level;
-    numDoubleComboChunksToSpawn += level;
-}
-
-const bounceVelocity = 12;
-
-const useOrbitControls = false;
-
-// At startup we create a dictionary of Material objects for each possible platform color
-// These are used whenever the ball changes color
-const ballMaterialCache = {};
-
 const platformColors = [
     // // blue
     // {
@@ -124,7 +99,40 @@ const doubleComboColor = {
     "emissive": 0xB76C8C,
 };
 
+const searchParams = new URLSearchParams(window.location.search);
+
+let level = 1;
+let numPlatforms = 20;
+let numDestroyChunksToSpawn = 2;
+let numDoubleComboChunksToSpawn = 3;
 let ballColor = platformColors[0].color;
+
+if (searchParams.has("level")) {
+    level = parseInt(searchParams.get("level"));
+
+    // Add 10 extra platforms per level
+    numPlatforms += (level - 1) * 10;
+
+    numDestroyChunksToSpawn += level;
+    numDoubleComboChunksToSpawn += level;
+
+    let lastColor = searchParams.get("lastColor");
+
+    for (const color of platformColors) {
+        if (color.color === lastColor) {
+            ballColor = lastColor;
+            break;
+        }
+    }
+}
+
+const bounceVelocity = 12;
+
+const useOrbitControls = false;
+
+// At startup we create a dictionary of Material objects for each possible platform color
+// These are used whenever the ball changes color
+const ballMaterialCache = {};
 
 // ----------------------------------------------------------------------------------------------------------------
 // Helpers functions
@@ -728,10 +736,10 @@ function checkCollisions() {
 
     if (ballBounds.intersectsBox(baseBounds)) {
         totalScore += comboScore * scoreModifier;
-        document.getElementById("uiScoreContainer").style.display = "none";
+        // document.getElementById("uiScoreContainer").style.display = "none";
         document.getElementById("uiWinScore").innerHTML = "SCORE " + totalScore;
         document.getElementById("uiGameSuccess").style.display = "block";
-        document.getElementById("nextLevelButton").href = "/?level=" + (level + 1);
+        document.getElementById("nextLevelButton").href = "/?level=" + (level + 1) + "&lastColor=" + ballColor;
         isGameOver = true;
     }
 }
@@ -739,6 +747,8 @@ function checkCollisions() {
 function processPlatformCollision(platform) {
 
     const color = platform.userData.color;
+    const velocity = ballBody.getLinearVelocity().y();
+    let breakPlatform = true;
 
     // Prevents platforms from hopping the ball by side-swiping
     if (ball.position.y <= platform.position.y) {
@@ -746,30 +756,29 @@ function processPlatformCollision(platform) {
     }
 
     // Game over platform
-    if (color === destroyColor.color) {
+    if (color === destroyColor.color && velocity >= -40) {
         totalScore += comboScore * scoreModifier;
         ball.material = ballMaterialCache[color];
         ballBody.setLinearVelocity(new Ammo.btVector3(0, 2, 0));
-        document.getElementById("uiScoreContainer").style.display = "none";
+        // document.getElementById("uiScoreContainer").style.display = "none";
         document.getElementById("uiLoseScore").innerHTML = "SCORE " + totalScore;
         document.getElementById("uiGameOver").style.display = "block";
         isGameOver = true;
     }
     // Bounce platforms
     else {
-        let breakPlatform = true;
-
         if (color === doubleComboColor.color) {
 
-            let velocity = ballBody.getLinearVelocity().y();
             ballBody.setLinearVelocity(new Ammo.btVector3(0, velocity - 5, 0));
             scoreModifier += 1;
         }
         // If the color doesn't match, change it and reset score
         else if (color !== ballColor) {
-            ball.material = ballMaterialCache[color];
-            ballColor = color;
-            // base.material = ballMaterialCache[color];
+
+            if (color !== destroyColor.color) {
+                ball.material = ballMaterialCache[color];
+                ballColor = color;
+            }
 
             totalScore += comboScore * scoreModifier;
             lastScoreReset = platform.position.y;
@@ -781,18 +790,18 @@ function processPlatformCollision(platform) {
             ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
             breakPlatform = false;
         }
+    }
 
-        if (breakPlatform) {
-            // Remove the platform chunk
-            // platform.userData.platformMesh.visible = false;
-            let index = platforms.indexOf(platform);
-            platforms.splice(index, 1);
+    if (breakPlatform) {
+        // Remove the platform chunk
+        // platform.userData.platformMesh.visible = false;
+        let index = platforms.indexOf(platform);
+        platforms.splice(index, 1);
 
-            let mesh = platform.userData.platformMesh;
-            mesh.material.transparent = true;
-            mesh.userData.sides.material.transparent = true;
-            breakingPlatforms.push(platform);
-        }
+        let mesh = platform.userData.platformMesh;
+        mesh.material.transparent = true;
+        mesh.userData.sides.material.transparent = true;
+        breakingPlatforms.push(platform);
     }
 }
 
