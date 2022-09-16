@@ -748,7 +748,7 @@ window.addEventListener('pointermove', function(event) {
     mouseX = event.clientX;
     mouseY = event.clientY;
 
-    platformGroup.rotation.y -= deltaX / 100;
+    platformGroup.rotation.y -= deltaX / 10;
     return false;
 });
 
