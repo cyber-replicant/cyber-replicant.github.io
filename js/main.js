@@ -1,7 +1,6 @@
-import * as THREE from 'three';
+// import * as THREE from 'three';
 
-import { GUI } from 'three/addons/libs/lil-gui.module.min.js';
-import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+// import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
 const twoPi = Math.PI * 2;
 
@@ -181,9 +180,9 @@ function setupScene() {
     renderer.setSize(window.innerWidth, window.innerHeight);
     document.body.appendChild(renderer.domElement);
 
-    if (useOrbitControls) {
-        const orbit = new OrbitControls(camera, renderer.domElement);
-    }
+    // if (useOrbitControls) {
+    //     const orbit = new OrbitControls(camera, renderer.domElement);
+    // }
 
     setupLights(scene);
     setupPhysics();
