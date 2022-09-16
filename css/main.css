@@ -8,53 +8,56 @@ body {
     overscroll-behavior: none;
 }
 
-.uiBase {
+.uiMessageContainer {
     position: absolute;
-    font-size: 24px;
-}
-#uiGameOver {
-    position: absolute;
-    font-size: 128px;
+    font-size: 64px;
     top: 50%;
-    left: 50%;
-    margin: -70px 0 0 -340px;
+    left: 35%;
+    margin: -70px 0 0 -140px;
+    min-width: 400px;
     display: none;
+    text-align: center;
 }
-#uiGameSuccess {
-    position: absolute;
-    font-size: 128px;
-    top: 50%;
-    left: 50%;
-    margin: -70px 0 0 -340px;
-    display: none;
-}
-
-.gameOverHeader {
+.message {
     pointer-events: none;
     border: 10px solid black;
     background-color: black;
-    padding: 0 20px 0 20px;
-    min-width: 600px;
+    padding: 20px 20px 20px 20px;
+    margin-bottom: 10px;
+    display: block;
 }
-.restartButton {
+.button {
     vertical-align: middle;
+    display: block;
+    background-color: black;
+    padding: 20px 20px 20px 20px;
+    text-decoration: none;
+    border: 10px solid black;
+    color: #B80D57;
+    min-width: 400px;
+}
+.button:hover {
+    background-color: #700961;
+    border: 10px solid #700961;
+    color: white;
 }
 
-#uiComboScore {
+#uiScoreContainer {
     position: absolute;
-    font-size: 128px;
-    right: 36%;
-    top: 100px;
+    right: 5%;
+    top: 30px;
+    font-size: 48px;
 }
-#uiTotalScore {
-    position: absolute;
-    font-size: 128px;
-    right: 10%;
-    top: 100px;
+.uiScoreHeading {
+    font-size: 32px;
+    vertical-align: middle;
+    text-align: left;
 }
-#uiScoreModifier {
-    position: absolute;
-    font-size: 128px;
-    right: 20%;
-    top: 100px;
+.uiScore {
+    display: block;
+    margin-bottom: 50px;
+    text-align: right;
+}
+#uiLevelContainer {
+    display: block;
 }

@@ -19,22 +19,32 @@
 
     <script type="module" src="js/main.js"></script>
 
-    <div id="uiComboScore">0</div>
-    <div id="uiTotalScore">0</div>
-    <div id="uiScoreModifier">x1</div>
-    <div class="uiBase">
+    <div id="uiScoreContainer">
+      <div class="uiScore">
+        <span class="uiScoreHeading">TOTAL</span>
+        <span id="uiTotalScore">0</span>
+      </div>
+      <div class="uiScore">
+        <span class="uiScoreHeading">COMBO</span>
+        <span id="uiComboScore">0</span>
+      </div>
+      <div class="uiScore">
+        <span class="uiScoreHeading">MOD</span>
+        <span id="uiScoreModifier">x1</span>
+      </div>
     </div>
-    <div id="uiGameOver">
-      <span class="gameOverHeader">GAME OVER</span>
-      <a href="/"  class="restartButton">
-        <img style="color:black" src="static/retry-icon.png"/>
-      </a>
+    <div id="uiLevelContainer" class="uiMessageContainer">
+      <span id="uiLevel" class="message">LEVEL 1</span>
     </div>
-    <div id="uiGameSuccess">
-      <span class="gameOverHeader">YOU WIN</span>
-      <a href="/"  class="restartButton">
-        <img style="color:black" src="static/retry-icon.png"/>
-      </a>
+    <div id="uiGameOver" class="uiMessageContainer">
+      <span class="message">GAME OVER</span>
+      <span id="uiLoseScore" class="message">SCORE 0</span>
+      <a href="/" class="button">TRY AGAIN</a>
+    </div>
+    <div id="uiGameSuccess" class="uiMessageContainer">
+      <span class="message">YOU WON!</span>
+      <span id="uiWinScore" class="message">SCORE 0</span>
+      <a id="nextLevelButton" href="/" class="button">NEXT LEVEL</a>
     </div>
   </body>
 </html>

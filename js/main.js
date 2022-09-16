@@ -11,7 +11,7 @@ let camera, clock, scene, renderer;
 let generalGroup, platformGroup, ballGroup;
 
 // THREE objects
-let base, ball, ballBounds, ballBody;
+let base, baseBounds, ball, ballBounds, ballBody;
 let skybox;
 
 // Ammo.js Physics variables
@@ -37,16 +37,32 @@ let isGameOver = false;
 let pointerDown = false;
 let mouseX = 0, mouseY = 0;
 
+// List of active platforms that can be collided with
 let platforms = [];
-let numDestroyChunksToSpawn = 3;
-let numDoubleComboChunksToSpawn = 3;
+// List of platforms that can no longer be collided with, but are still busy animating the breaking process
+let breakingPlatforms = [];
 
 const chunkSize = twoPi / 8;
+const platformGapSize = 11;
 
-const numPlatforms = 20;
-const platformGapSize = 10;
+const searchParams = new URLSearchParams(window.location.search);
 
-const bounceVelocity = 15;
+let level = 1;
+let numPlatforms = 20;
+let numDestroyChunksToSpawn = 2;
+let numDoubleComboChunksToSpawn = 3;
+
+if (searchParams.has("level")) {
+    level = parseInt(searchParams.get("level"));
+
+    // Add 10 extra platforms per level
+    numPlatforms += (level - 1) * 10;
+
+    numDestroyChunksToSpawn += level;
+    numDoubleComboChunksToSpawn += level;
+}
+
+const bounceVelocity = 12;
 
 const useOrbitControls = false;
 
@@ -104,7 +120,7 @@ const destroyColor = {
 };
 
 const doubleComboColor = {
-    "color": 0xC0C0C0,
+    "color": 0xffffff,
     "emissive": 0xB76C8C,
 };
 
@@ -142,8 +158,13 @@ Ammo().then(function(AmmoLib) {
 
     Ammo = AmmoLib;
 
-    setupScene();
-    animate();
+    document.getElementById("uiLevel").innerHTML = "LEVEL " + level;
+
+    setTimeout(() => {
+        document.getElementById("uiLevel").style.display = "none";
+        setupScene();
+        animate();
+    }, 1000);
 });
 
 function setupPhysics() {
@@ -190,6 +211,8 @@ function setupScene() {
     setupLevel(scene);
 
     camera.lookAt(ball.position);
+
+    // setupParticles(scene);
 
     render();
 }
@@ -239,7 +262,7 @@ function setupPillar() {
     const pillarGeometry = new THREE.CylinderGeometry(
         3, // radiusTop
         3, // radiusBottom
-        400, // height
+        2000, // height
         30, // radialSegments
         1, // heightSegments
         false, // openEnded
@@ -254,11 +277,11 @@ function setupPillar() {
     });
 
     let pillar = new THREE.Mesh(pillarGeometry, pillarMaterial);
-    pillar.position.y = -50;
+    pillar.position.y = -950;
     generalGroup.add(pillar);
 
     // Pillar base
-    const baseRadius = 20;
+    const baseRadius = 10;
     const baseHeight = 2;
 
     const baseGeometry = new THREE.CylinderGeometry(
@@ -272,6 +295,12 @@ function setupPillar() {
         twoPi // thetaLength
     );
 
+    // const baseMaterial = new THREE.MeshPhongMaterial({
+    //     color: 0xB80D57,
+    //     emissive: 0x720935,
+    //     side: THREE.DoubleSide
+    // });
+
     base = new THREE.Mesh(baseGeometry, pillarMaterial);
     base.position.y = numPlatforms * -platformGapSize;
     generalGroup.add(base);
@@ -280,6 +309,83 @@ function setupPillar() {
     const baseShape = new Ammo.btCylinderShape(new Ammo.btVector3(baseRadius, baseHeight * 0.5, 50));
     baseShape.setMargin(collisionMargin);
     const baseBody = createRigidBody(base, baseShape, 0);
+    // baseBody.setFriction(0);
+
+    // Create bounding box for the base so that we can detect the end game condition
+    let boxMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
+    let boxGeometry = new THREE.BoxGeometry(20, 2, 20, 1, 1, 1 );
+    let box = new THREE.Mesh(boxGeometry, boxMaterial);
+
+    box.geometry.computeBoundingBox();
+    box.position.copy(base.position);
+    box.visible = false;
+    generalGroup.add(box);
+
+    // Generate the bounding box for the platform chunk
+    baseBounds = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
+    baseBounds.setFromObject(box);
+}
+
+
+function randomVelocity() {
+    var dx = 0.001 + 0.003*Math.random();
+    var dy = 0.001 + 0.003*Math.random();
+    var dz = 0.001 + 0.003*Math.random();
+    if (Math.random() < 0.5) {
+        dx = -dx;
+    }
+    if (Math.random() < 0.5) {
+        dy = -dy;
+    }
+    if (Math.random() < 0.5) {
+        dz = -dz;
+    }
+    return new THREE.Vector3(dx,dy,dz);
+}
+
+
+function setupParticles(scene) {
+
+    var MAX_POINTS = 500;
+    var pointsInUse = 2500;
+
+    let points = new Array(MAX_POINTS);
+    let spinSpeeds = new Array(MAX_POINTS);
+    let driftSpeeds = new Array(MAX_POINTS);
+    let pointsBuffer = new Float32Array( 3*MAX_POINTS );
+    let colorBuffer = new Float32Array( 3*MAX_POINTS );
+    var i = 0;
+    var yaxis = new THREE.Vector3(0,1,0);
+    while (i < MAX_POINTS) {
+        var x = 2*Math.random() - 1;
+        var y = 2*Math.random() - 1;
+        var z = 2*Math.random() - 1;
+        if ( x*x + y*y + z*z < 1 ) {  // only use points inside the unit sphere
+            var angularSpeed = 0.001 + Math.random()/50;  // angular speed of rotation about the y-axis
+            spinSpeeds[i] = new THREE.Quaternion();
+            spinSpeeds[i].setFromAxisAngle(yaxis,angularSpeed);  // The quaternian for rotation by angularSpeed radians about the y-axis.
+            driftSpeeds[i] = randomVelocity();
+            points[i] = new THREE.Vector3(x,y,z);
+         pointsBuffer[3*i] = x;
+         pointsBuffer[3*i+1] = y;
+         pointsBuffer[3*i+2] = z;
+         colorBuffer[3*i] = 0.25 + 0.75*Math.random();
+         colorBuffer[3*i+1] = 0.25 + 0.75*Math.random();
+         colorBuffer[3*i+2] = 0.25 + 0.75*Math.random();
+            i++;
+        }
+    }
+    let geometry = new THREE.BufferGeometry();
+    geometry.setAttribute("position", new THREE.BufferAttribute(pointsBuffer,3));
+    geometry.setAttribute("color", new THREE.BufferAttribute(colorBuffer,3));
+    geometry.setDrawRange(0,pointsInUse);
+    let material = new THREE.PointsMaterial({
+            color: "yellow",
+            size: 2,
+            sizeAttenuation: false
+        });
+    let pointCloud = new THREE.Points(geometry,material);
+    scene.add(pointCloud);
 }
 
 function setupSkybox() {
@@ -298,8 +404,8 @@ function setupSkybox() {
         return new THREE.MeshBasicMaterial({ map: texture, side: THREE.BackSide });
     });
 
-    let material = new THREE.MeshBasicMaterial({ color: getRandomColor() });
-    let object = new THREE.Mesh(new THREE.BoxGeometry(1000, 1000, 1000, 1, 1, 1 ), materialArray);
+    // let material = new THREE.MeshBasicMaterial({ color: getRandomColor() });
+    let object = new THREE.Mesh(new THREE.BoxGeometry(10000, 10000, 10000, 1, 1, 1 ), materialArray);
     object.position.set(0, 0, 0);
     generalGroup.add(object);
 }
@@ -493,10 +599,15 @@ function generatePlatformChunk(rotationY, position, colorData) {
     );
 
     const cylinderMaterial = new THREE.MeshPhongMaterial({
-        color: colorData["color"],
-        emissive: colorData["emissive"],
+        color: colorData.color,
+        emissive: colorData.emissive,
         side: THREE.DoubleSide,
     });
+
+    if (colorData.color === doubleComboColor.color) {
+        cylinderMaterial.transparent = true;
+        cylinderMaterial.opacity = 0.7;
+    }
 
     const chunk = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
     platformGroup.add(chunk);
@@ -508,7 +619,8 @@ function generatePlatformChunk(rotationY, position, colorData) {
     chunk.position.y = position.y;
 
     let boxMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
-    let box = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2, 1, 1, 1 ), boxMaterial);
+    let boxGeometry = new THREE.BoxGeometry(2, 2, 2, 1, 1, 1 );
+    let box = new THREE.Mesh(boxGeometry, boxMaterial);
 
     box.geometry.computeBoundingBox();
     box.position.copy(position);
@@ -516,6 +628,14 @@ function generatePlatformChunk(rotationY, position, colorData) {
 
     box.userData.color = colorData.color;
     platformGroup.add(box);
+
+    // let pointsMaterial = new THREE.PointsMaterial({
+    //     color: colorData.color,
+    //     size: 5,
+    //     sizeAttenuation: false
+    // });
+    // let pointCloud = new THREE.Points(boxGeometry, pointsMaterial);
+    // platformGroup.add(pointCloud);
 
     // Generate the bounding box for the platform chunk
     let cubeBounds = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
@@ -555,6 +675,7 @@ function generatePlatformChunk(rotationY, position, colorData) {
     });
     const sides = new THREE.Mesh(sidesGeometry, sidesMaterial);
     chunk.add(sides);
+    chunk.userData.sides = sides;
 
     return chunk;
 }
@@ -599,27 +720,49 @@ function checkCollisions() {
         // Bounce the ball if it intersects with any of the bounding cubes
         if (ballBounds.intersectsBox(cubeBounds)) {
             processPlatformCollision(platform);
+
+            // Don't allow colliding with multiple platforms at the same time
+            break;
         }
     }
 
-    // if (ballBounds.intersects
+    if (ballBounds.intersectsBox(baseBounds)) {
+        totalScore += comboScore * scoreModifier;
+        document.getElementById("uiScoreContainer").style.display = "none";
+        document.getElementById("uiWinScore").innerHTML = "SCORE " + totalScore;
+        document.getElementById("uiGameSuccess").style.display = "block";
+        document.getElementById("nextLevelButton").href = "/?level=" + (level + 1);
+        isGameOver = true;
+    }
 }
 
 function processPlatformCollision(platform) {
 
     const color = platform.userData.color;
 
+    // Prevents platforms from hopping the ball by side-swiping
+    if (ball.position.y <= platform.position.y) {
+        return;
+    }
+
     // Game over platform
     if (color === destroyColor.color) {
         totalScore += comboScore * scoreModifier;
         ball.material = ballMaterialCache[color];
-        ballBody.setLinearVelocity(new Ammo.btVector3(0,2,0));
+        ballBody.setLinearVelocity(new Ammo.btVector3(0, 2, 0));
+        document.getElementById("uiScoreContainer").style.display = "none";
+        document.getElementById("uiLoseScore").innerHTML = "SCORE " + totalScore;
         document.getElementById("uiGameOver").style.display = "block";
         isGameOver = true;
     }
     // Bounce platforms
     else {
+        let breakPlatform = true;
+
         if (color === doubleComboColor.color) {
+
+            let velocity = ballBody.getLinearVelocity().y();
+            ballBody.setLinearVelocity(new Ammo.btVector3(0, velocity - 5, 0));
             scoreModifier += 1;
         }
         // If the color doesn't match, change it and reset score
@@ -628,31 +771,34 @@ function processPlatformCollision(platform) {
             ballColor = color;
             // base.material = ballMaterialCache[color];
 
-            totalScore += comboScore;
+            totalScore += comboScore * scoreModifier;
             lastScoreReset = platform.position.y;
             scoreModifier = 1;
             ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
         }
+        // If the color matches, only bounce
         else {
             ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
+            breakPlatform = false;
         }
 
-        // Remove the platform chunk
-        platform.userData.platformMesh.visible = false;
-        let index = platforms.indexOf(platform);
-        platforms.splice(index, 1);
+        if (breakPlatform) {
+            // Remove the platform chunk
+            // platform.userData.platformMesh.visible = false;
+            let index = platforms.indexOf(platform);
+            platforms.splice(index, 1);
+
+            let mesh = platform.userData.platformMesh;
+            mesh.material.transparent = true;
+            mesh.userData.sides.material.transparent = true;
+            breakingPlatforms.push(platform);
+        }
     }
 }
 
-function animate() {
-
-    if (isGameOver) {
-        return;
-    }
+function animate(startLoop=true) {
 
     ballBounds.copy(ball.geometry.boundingSphere).applyMatrix4(ball.matrixWorld);
-
-    checkCollisions();
 
     render();
     requestAnimationFrame(animate);
@@ -661,17 +807,34 @@ function animate() {
 function render() {
 
     const deltaTime = clock.getDelta();
-    const velocity = ballBody.getLinearVelocity().y();
 
     comboScore = 1 + Math.floor((lastScoreReset - ball.position.y) / platformGapSize);
-    velocity *= (comboScore * 0.1);
-    ballBody.setLinearVelocity(new Ammo.btVector3(0, velocity, 0));
 
     document.getElementById("uiComboScore").innerHTML = comboScore;
     document.getElementById("uiTotalScore").innerHTML = totalScore;
     document.getElementById("uiScoreModifier").innerHTML = "x" + scoreModifier;
 
-    updatePhysics(deltaTime);
+    if (!isGameOver) {
+        checkCollisions();
+        updatePhysics(deltaTime);
+    }
+
+    for (let platform of breakingPlatforms) {
+
+        let mesh = platform.userData.platformMesh;
+        let sides = mesh.userData.sides;
+
+        let opacityChange = deltaTime * 3;
+        mesh.material.opacity -= opacityChange;
+        sides.material.opacity -= opacityChange;
+
+        if (mesh.material.opacity <= 0) {
+
+            mesh.visible = false;
+            let index = breakingPlatforms.indexOf(platform);
+            breakingPlatforms.splice(index, 1);
+        }
+    }
 
     // Move camera to follow ball
     const triggerFollowDistance = 4;
@@ -735,7 +898,7 @@ window.addEventListener('pointerup', function(event) {
 
 window.addEventListener('pointermove', function(event) {
 
-    if (!pointerDown) {
+    if (!pointerDown || isGameOver) {
         return;
     }
 
@@ -744,57 +907,21 @@ window.addEventListener('pointermove', function(event) {
     mouseX = event.clientX;
     mouseY = event.clientY;
 
-    platformGroup.rotation.y -= deltaX / 5;
+    platformGroup.rotation.y += deltaX / 10;
 });
 
-
-
-// window.addEventListener('touchstart', function(event) {
-
-//     event.preventDefault();
-
-//     pointerDown = true;
-//     mouseX = event.clientX;
-//     mouseY = event.clientY;
-//     return false;
-// });
-
-// window.addEventListener('touchend', function(event) {
-
-//     event.preventDefault();
-
-//     pointerDown = false;
-//     return false;
-// });
-
-// window.addEventListener('touchmove', function(event) {
-
-//     if (!pointerDown) {
-//         return;
-//     }
-
-//     event.preventDefault();
-
-//     let deltaX = event.clientX - mouseX;
-//     let deltaY = event.clientY - mouseY;
-//     mouseX = event.clientX;
-//     mouseY = event.clientY;
-
-//     platformGroup.rotation.y -= deltaX / 50;
-//     return false;
-// });
 
 // window.addEventListener( 'keydown', function ( event ) {
 
 //     switch ( event.keyCode ) {
 //         // D
 //         case 68:
-//             // camera.position.y += 1;
+//             camera.position.y += 10;
 //             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,1,0));
 //             break;
 //         // A
 //         case 65:
-//             camera.position.y -= 1;
+//             camera.position.y -= 10;
 //             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,-1,0));
 //             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
 //             break;
