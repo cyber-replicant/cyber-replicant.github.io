@@ -12,7 +12,7 @@ let camera, clock, scene, renderer;
 let generalGroup, platformGroup, ballGroup;
 
 // THREE objects
-let ball, ballBounds;
+let base, ball, ballBounds, ballBody;
 let skybox;
 
 // Ammo.js Physics variables
@@ -26,7 +26,9 @@ const pos = new THREE.Vector3();
 const quat = new THREE.Quaternion();
 
 // Game variables
+let totalScore = 0;
 let comboScore = 0;
+let scoreModifier = 1;
 
 // The level at which the score was most recently reset
 let lastScoreReset = 0;
@@ -38,30 +40,62 @@ let mouseX = 0, mouseY = 0;
 
 let platforms = [];
 let numDestroyChunksToSpawn = 3;
+let numDoubleComboChunksToSpawn = 3;
 
 const chunkSize = twoPi / 8;
 
-const numPlatforms = 15;
+const numPlatforms = 20;
 const platformGapSize = 10;
+
+const bounceVelocity = 15;
 
 const useOrbitControls = false;
 
+// At startup we create a dictionary of Material objects for each possible platform color
+// These are used whenever the ball changes color
+const ballMaterialCache = {};
+
 const platformColors = [
+    // // blue
+    // {
+    //     "color": 0x0066AF,
+    //     "emissive": 0x003860,
+    // },
+    // // pink
+    // {
+    //     "color": 0xED217C,
+    //     "emissive": 0xA81758,
+    // },
+    // // yellow
+    // {
+    //     "color": 0xD3D15B,
+    //     "emissive": 0x686418,
+    // },
+    // // green
+    // {
+    //     "color": 0x16994A,
+    //     "emissive": 0x094C22,
+    // },
+
+    // maroon
     {
-        "color": 0x0066AF,
-        "emissive": 0x003860,
+        "color": 0x890D18,
+        "emissive": 0x5B0B11,
     },
+    // purple
     {
-        "color": 0xED217C,
-        "emissive": 0xA81758,
+        "color": 0x3F0538,
+        "emissive": 0x260322,
     },
+    // orange
     {
-        "color": 0x0066AF,
-        "emissive": 0x003860,
+        "color": 0xC9300C,
+        "emissive": 0x912108,
     },
+    // yellow
     {
-        "color": 0x0dab76,
-        "emissive": 0x097853,
+        "color": 0xFFB638,
+        "emissive": 0x685417,
     },
 ];
 
@@ -71,9 +105,11 @@ const destroyColor = {
 };
 
 const doubleComboColor = {
-    "color": 0xffffff,
-    "emissive": 0xffffff,
+    "color": 0xC0C0C0,
+    "emissive": 0xB76C8C,
 };
+
+let ballColor = platformColors[0].color;
 
 // ----------------------------------------------------------------------------------------------------------------
 // Helpers functions
@@ -204,7 +240,7 @@ function setupPillar() {
     const pillarGeometry = new THREE.CylinderGeometry(
         3, // radiusTop
         3, // radiusBottom
-        300, // height
+        400, // height
         30, // radialSegments
         1, // heightSegments
         false, // openEnded
@@ -237,25 +273,25 @@ function setupPillar() {
         twoPi // thetaLength
     );
 
-    let base = new THREE.Mesh(baseGeometry, pillarMaterial);
+    base = new THREE.Mesh(baseGeometry, pillarMaterial);
     base.position.y = numPlatforms * -platformGapSize;
     generalGroup.add(base);
 
     // Create physics object for base to stop the ball
     const baseShape = new Ammo.btCylinderShape(new Ammo.btVector3(baseRadius, baseHeight * 0.5, 50));
     baseShape.setMargin(collisionMargin);
-    const ballBody = createRigidBody(base, baseShape, 0);
+    const baseBody = createRigidBody(base, baseShape, 0);
 }
 
 function setupSkybox() {
 
     const skyboxTexturePaths = [
-        './static/skybox/skybox2.png', // right
-        './static/skybox/skybox2.png', // left
-        './static/skybox/skybox1.png',
-        './static/skybox/skybox3.png', // bottom
-        './static/skybox/skybox2.png',
-        './static/skybox/skybox1.png', //back
+        './static/skybox/skybox4.png', // right
+        './static/skybox/skybox4.png', // left
+        './static/skybox/skybox4.png',
+        './static/skybox/skybox4.png', // bottom
+        './static/skybox/skybox4.png',
+        './static/skybox/skybox4.png', //back
     ];
 
     const materialArray = skyboxTexturePaths.map(image => {
@@ -284,15 +320,27 @@ function setupBall(scene) {
         Math.PI // thetaLength
     )
 
-    const ballMaterial = new THREE.MeshPhongMaterial({
-        color: 0x156289,
-        emissive: 0x091833,
+    for (let colorData of platformColors) {
+
+        const ballMaterial = new THREE.MeshPhongMaterial({
+            color: colorData.color,
+            emissive: colorData.emissive,
+            side: THREE.DoubleSide,
+            // flatShading: true
+        });
+
+        ballMaterialCache[colorData.color] = ballMaterial;
+    }
+
+    ballMaterialCache[destroyColor.color] = new THREE.MeshPhongMaterial({
+        color: destroyColor.color,
+        emissive: destroyColor.emissive,
         side: THREE.DoubleSide,
         // flatShading: true
     });
 
     // Create THREE ball object
-    ball = new THREE.Mesh(ballGeometry, ballMaterial);
+    ball = new THREE.Mesh(ballGeometry, ballMaterialCache[ballColor]);
     ball.castShadow = true;
     ball.position.set(0, 10, 5);
 
@@ -305,7 +353,7 @@ function setupBall(scene) {
     const ballShape = new Ammo.btSphereShape(ballRadius);
     ballShape.setMargin(collisionMargin);
 
-    const ballBody = createRigidBody(ball, ballShape, ballMass);
+    ballBody = createRigidBody(ball, ballShape, ballMass);
     ballBody.setRestitution(1);
     ballBody.setLinearVelocity(new Ammo.btVector3(0, -10, 0));
     // body.setAngularFactor( 0, 1, 0 );
@@ -314,6 +362,7 @@ function setupBall(scene) {
 function setupPlatforms() {
 
     let destroyChunks = {};
+    let doubleComboChunks = {};
 
     // Calculate where to randomly place destroy chunks
     while (numDestroyChunksToSpawn > 0) {
@@ -329,15 +378,30 @@ function setupPlatforms() {
         numDestroyChunksToSpawn -= 1;
     }
 
+    // Calculate where to randomly place destroy chunks
+    while (numDoubleComboChunksToSpawn > 0) {
+
+        // Never spawn a doulbe combo chunk in the top 5 platforms
+        let platformIndex = getRandomInt(5,  numPlatforms - 1);
+
+        if (platformIndex in doubleComboChunks) {
+            continue;
+        }
+
+        doubleComboChunks[platformIndex] = true;
+        numDoubleComboChunksToSpawn -= 1;
+    }
+
     // Generate the chunks for each platform
     for (let i = 0; i < numPlatforms; i++) {
 
         let hasDestroyChunk = destroyChunks[i];
-        generatePlatform(i * -platformGapSize, hasDestroyChunk);
+        let hasDoubleComboChunk = doubleComboChunks[i];
+        generatePlatform(i * -platformGapSize, hasDestroyChunk, hasDoubleComboChunk);
     }
 }
 
-function generatePlatform(platformY, hasDestroyChunk) {
+function generatePlatform(platformY, hasDestroyChunk, hasDoubleComboChunk) {
 
     // Rotations and positions of platform chunks
     const rotations = [
@@ -365,8 +429,7 @@ function generatePlatform(platformY, hasDestroyChunk) {
     ];
 
     // Remove a random amount of pie chunks from the platform
-    const maxChunksToRemove = 4;
-    let numChunksToRemove = getRandomInt(3, 5);
+    let numChunksToRemove = getRandomInt(4, 6);
 
     while (numChunksToRemove > 0) {
 
@@ -383,21 +446,20 @@ function generatePlatform(platformY, hasDestroyChunk) {
     }
 
     // Generate array of chunk types
-    const hasDoubleCombo = getRandomInt(0, 2);
     let chunkColors = [];
 
     if (hasDestroyChunk) {
         chunkColors.push(destroyColor);
     }
 
-    if (hasDoubleCombo === 0) {
+    if (hasDoubleComboChunk) {
         chunkColors.push(doubleComboColor);
     }
 
     const numColorsToSelect = positions.length - chunkColors.length;
     const numColors = Object.keys(platformColors).length - 1;
 
-    [0, 1, 2, 3];
+    // [0, 1, 2, 3];
 
     for (let i = 0, il = positions.length - chunkColors.length; i < il; i++) {
         const colorIndex = getRandomInt(0, numColors);
@@ -417,7 +479,6 @@ function generatePlatform(platformY, hasDestroyChunk) {
 function generatePlatformChunk(rotationY, position, colorData) {
 
     // Generate the platform chunk by creating a cylinder
-
     const cylinderRadius = 9;
     const cylinderHeight = 2;
 
@@ -447,21 +508,22 @@ function generatePlatformChunk(rotationY, position, colorData) {
     chunk.rotation.y = rotationY;
     chunk.position.y = position.y;
 
-    // Generate the bounding box for the platform chunk
-
     let boxMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFFFF });
-    let box = new THREE.Mesh(new THREE.BoxGeometry(3, 2, 2, 1, 1, 1 ), boxMaterial);
+    let box = new THREE.Mesh(new THREE.BoxGeometry(2, 2, 2, 1, 1, 1 ), boxMaterial);
 
     box.geometry.computeBoundingBox();
     box.position.copy(position);
     box.visible = false;
 
-    box.userData.color = colorData["color"];
+    box.userData.color = colorData.color;
     platformGroup.add(box);
 
+    // Generate the bounding box for the platform chunk
     let cubeBounds = new THREE.Box3(new THREE.Vector3(), new THREE.Vector3());
     cubeBounds.setFromObject(box);
     box.userData.cubeBounds = cubeBounds;
+    box.userData.platformMesh = chunk;
+
     platforms.push(box);
 
     // Draw shapes to fill the sides of the pie chunk
@@ -533,28 +595,53 @@ function checkCollisions() {
     for (const platform of platforms) {
 
         const cubeBounds = platform.userData.cubeBounds;
-        const color = platform.userData.color;
         cubeBounds.copy(platform.geometry.boundingBox).applyMatrix4(platform.matrixWorld);
 
         // Bounce the ball if it intersects with any of the bounding cubes
         if (ballBounds.intersectsBox(cubeBounds)) {
-
-            // Game over
-            if (color === destroyColor.color) {
-                // ball.visible = false;
-                ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,5,0));
-                document.getElementById("uiGameOver").style.display = "block";
-                isGameOver = true;
-            }
-            else if (color === doubleComboColor.color) {
-                ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,15,0));
-
-            }
-            else {
-                ball.userData.physicsBody.setLinearVelocity(new Ammo.btVector3(0,15,0));
-                lastScoreReset = platform.position.y;
-            }
+            processPlatformCollision(platform);
         }
+    }
+
+    // if (ballBounds.intersects
+}
+
+function processPlatformCollision(platform) {
+
+    const color = platform.userData.color;
+
+    // Game over platform
+    if (color === destroyColor.color) {
+        totalScore += comboScore * scoreModifier;
+        ball.material = ballMaterialCache[color];
+        ballBody.setLinearVelocity(new Ammo.btVector3(0,2,0));
+        document.getElementById("uiGameOver").style.display = "block";
+        isGameOver = true;
+    }
+    // Bounce platforms
+    else {
+        if (color === doubleComboColor.color) {
+            scoreModifier += 1;
+        }
+        // If the color doesn't match, change it and reset score
+        else if (color !== ballColor) {
+            ball.material = ballMaterialCache[color];
+            ballColor = color;
+            // base.material = ballMaterialCache[color];
+
+            totalScore += comboScore;
+            lastScoreReset = platform.position.y;
+            scoreModifier = 1;
+            ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
+        }
+        else {
+            ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
+        }
+
+        // Remove the platform chunk
+        platform.userData.platformMesh.visible = false;
+        let index = platforms.indexOf(platform);
+        platforms.splice(index, 1);
     }
 }
 
@@ -578,14 +665,22 @@ function render() {
 
     comboScore = 1+Math.floor((lastScoreReset - ball.position.y) / platformGapSize);
     document.getElementById("uiComboScore").innerHTML = comboScore;
+    document.getElementById("uiTotalScore").innerHTML = totalScore;
+    document.getElementById("uiScoreModifier").innerHTML = "x" + scoreModifier;
 
     updatePhysics(deltaTime);
 
-    const MEOW = 5;
+    // Move camera to follow ball
+    const triggerFollowDistance = 4;
 
-    if (!useOrbitControls && camera.position.y - ball.position.y >= MEOW) {
-        let velocity = ball.userData.physicsBody.getLinearVelocity().y();
-        camera.position.y  -= 1;//+= deltaTime * velocity * 0.5;
+    if (!useOrbitControls && camera.position.y - ball.position.y >= triggerFollowDistance) {
+
+        // const velocity = ballBody.getLinearVelocity().y();
+        // camera.position.y += (deltaTime * velocity) - 1;
+
+        // cmaer
+        console.log(camera.position.y - ball.position.y);
+        camera.position.y -= 1;//+= deltaTime * velocity * 0.5;
         // camera.lookAt(ball.position);
     }
 
@@ -663,7 +758,7 @@ window.addEventListener('pointermove', function(event) {
 //     switch ( event.keyCode ) {
 //         // D
 //         case 68:
-//             camera.position.y += 1;
+//             // camera.position.y += 1;
 //             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,1,0));
 //             break;
 //         // A

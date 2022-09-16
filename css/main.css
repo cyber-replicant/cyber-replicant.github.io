@@ -12,7 +12,15 @@ body {
     position: absolute;
     font-size: 24px;
 }
-.uiGameOver {
+#uiGameOver {
+    position: absolute;
+    font-size: 128px;
+    top: 50%;
+    left: 50%;
+    margin: -70px 0 0 -340px;
+    display: none;
+}
+#uiGameSuccess {
     position: absolute;
     font-size: 128px;
     top: 50%;
@@ -36,5 +44,17 @@ body {
     position: absolute;
     font-size: 128px;
     right: 36%;
+    top: 100px;
+}
+#uiTotalScore {
+    position: absolute;
+    font-size: 128px;
+    right: 10%;
+    top: 100px;
+}
+#uiScoreModifier {
+    position: absolute;
+    font-size: 128px;
+    right: 20%;
     top: 100px;
 }
