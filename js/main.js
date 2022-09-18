@@ -180,9 +180,10 @@ Ammo().then(function(AmmoLib) {
 
     setTimeout(() => {
         document.getElementById("uiLevel").style.display = "none";
-        setupScene();
-        animate();
-    }, 1000);
+    }, 500);
+
+    setupScene();
+    animate();
 });
 
 function setupPhysics() {
@@ -735,6 +736,7 @@ function generatePlatformChunk(rotationY, position, colorData) {
     box.visible = false;
 
     box.userData.color = colorData.color;
+    box.userData.isColliding = false;
     platformGroup.add(box);
 
     // let pointsMaterial = new THREE.PointsMaterial({
@@ -826,11 +828,13 @@ function checkCollisions() {
         cubeBounds.copy(platform.geometry.boundingBox).applyMatrix4(platform.matrixWorld);
 
         // Bounce the ball if it intersects with any of the bounding cubes
-        if (ballBounds.intersectsBox(cubeBounds)) {
+        if (ballBounds.intersectsBox(cubeBounds) && !platform.userData.isColliding) {
+            platform.userData.isColliding = true;
             processPlatformCollision(platform);
 
-            // Don't allow colliding with multiple platforms at the same time
-            break;
+        // If it was colliding before but isn't anymore, update the isColliding field
+        } else if (platform.userData.isColliding) {
+            platform.userData.isColliding = false;
         }
     }
 
@@ -847,6 +851,7 @@ function checkCollisions() {
 function processPlatformCollision(platform) {
 
     const color = platform.userData.color;
+    console.log(platform.userData.isColliding);
     const velocity = ballBody.getLinearVelocity().y();
     let breakPlatform = true;
 
@@ -874,7 +879,7 @@ function processPlatformCollision(platform) {
             ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
             scoreModifier += 1;
         }
-        // If the color doesn't match, change it and reset score
+        // If the color doesn't match
         else if (color !== ballColor) {
 
             if (color !== destroyColor.color) {
@@ -888,10 +893,10 @@ function processPlatformCollision(platform) {
             ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
             breakPlatform = false;
         }
-        // If the color matches, only bounce
+        // If the color matches
         else {
             ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
-            breakPlatform = false;
+            // breakPlatform = false;
         }
     }
 
@@ -1043,31 +1048,34 @@ window.addEventListener('pointermove', function(event) {
     console.log(mouseX + " " + mouseY);
 });
 
-// window.addEventListener('touchstart', function(event) {
+window.addEventListener('touchstart', function(event) {
 
-//     pointerDown = true;
-//     mouseX = event.clientX;
-//     mouseY = event.clientY;
-// });
+    pointerDown = true;
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+    console.log(mouseX + " " + mouseY);
+});
 
-// window.addEventListener('touchend', function(event) {
+window.addEventListener('touchend', function(event) {
 
-//     pointerDown = false;
-// });
+    pointerDown = false;
+    console.log(mouseX + " " + mouseY);
+});
 
-// window.addEventListener('touchmove', function(event) {
+window.addEventListener('touchmove', function(event) {
 
-//     if (!pointerDown || isGameOver) {
-//         return;
-//     }
+    if (!pointerDown || isGameOver) {
+        return;
+    }
 
-//     let deltaX = event.clientX - mouseX;
-//     let deltaY = event.clientY - mouseY;
-//     mouseX = event.clientX;
-//     mouseY = event.clientY;
+    let deltaX = event.clientX - mouseX;
+    let deltaY = event.clientY - mouseY;
+    mouseX = event.clientX;
+    mouseY = event.clientY;
 
-//     platformGroup.rotation.y += deltaX / 20;
-// });
+    platformGroup.rotation.y += deltaX / 20;
+    console.log(mouseX + " " + mouseY);
+});
 
 
 // window.addEventListener( 'keydown', function ( event ) {
