@@ -26,6 +26,7 @@ const quat = new THREE.Quaternion();
 
 // Game variables
 let totalScore = 0;
+let previousComboScore = 0;
 let comboScore = 0;
 let scoreModifier = 1;
 
@@ -37,13 +38,16 @@ let isGameOver = false;
 let pointerDown = false;
 let mouseX = 0, mouseY = 0;
 
+// List of Audio objects matching the combo score
+let comboSounds = [];
+
 // List of active platforms that can be collided with
 let platforms = [];
 // List of platforms that can no longer be collided with, but are still busy animating the breaking process
 let breakingPlatforms = [];
 
 const chunkSize = twoPi / 8;
-const platformGapSize = 11;
+const platformGapSize = 12;
 
 const platformColors = [
     // // blue
@@ -78,10 +82,10 @@ const platformColors = [
         "emissive": 0x260322,
     },
     // orange
-    {
-        "color": 0xC9300C,
-        "emissive": 0x912108,
-    },
+    // {
+    //     "color": 0xC9300C,
+    //     "emissive": 0x912108,
+    // },
     // yellow
     {
         "color": 0xFFB638,
@@ -97,6 +101,11 @@ const destroyColor = {
 const doubleComboColor = {
     "color": 0xffffff,
     "emissive": 0xB76C8C,
+};
+
+const crushColor = {
+    "color": 0xB80D57,
+    "emissive": 0x7F0A3D,
 };
 
 const searchParams = new URLSearchParams(window.location.search);
@@ -222,6 +231,8 @@ function setupScene() {
 
     // setupParticles(scene);
 
+    setupAudio();
+
     render();
 }
 
@@ -239,6 +250,45 @@ function setupLights(scene) {
     scene.add(lights[0]);
     scene.add(lights[1]);
     scene.add(lights[2]);
+}
+
+function setupAudio() {
+
+    comboSounds = [
+        new Audio('/static/audio/combo-01.wav'),
+        new Audio('/static/audio/combo-02.wav'),
+        new Audio('/static/audio/combo-03.wav'),
+        new Audio('/static/audio/combo-04.wav'),
+        new Audio('/static/audio/combo-05.wav'),
+        new Audio('/static/audio/combo-06.wav'),
+        new Audio('/static/audio/combo-07.wav'),
+        new Audio('/static/audio/combo-08.wav'),
+        new Audio('/static/audio/combo-09.wav'),
+        new Audio('/static/audio/combo-10.wav'),
+        new Audio('/static/audio/combo-11.wav'),
+        new Audio('/static/audio/combo-12.wav'),
+        new Audio('/static/audio/combo-13.wav'),
+        new Audio('/static/audio/combo-14.wav'),
+        new Audio('/static/audio/combo-15.wav'),
+        new Audio('/static/audio/combo-16.wav'),
+        new Audio('/static/audio/combo-17.wav'),
+        new Audio('/static/audio/combo-18.wav'),
+    ];
+}
+
+function playComboSound(soundIndex) {
+
+    for (let i = 0; i < comboSounds.length; i++) {
+
+        const audio = comboSounds[i];
+
+        if (soundIndex === i) {
+            audio.play();
+        } else {
+            audio.pause();
+            audio.currentTime = 0;
+        }
+    }
 }
 
 function setupLevel(scene) {
@@ -612,10 +662,10 @@ function generatePlatformChunk(rotationY, position, colorData) {
         side: THREE.DoubleSide,
     });
 
-    if (colorData.color === doubleComboColor.color) {
-        cylinderMaterial.transparent = true;
-        cylinderMaterial.opacity = 0.7;
-    }
+    // if (colorData.color === doubleComboColor.color) {
+    //     cylinderMaterial.transparent = true;
+    //     cylinderMaterial.opacity = 0.7;
+    // }
 
     const chunk = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
     platformGroup.add(chunk);
@@ -751,9 +801,9 @@ function processPlatformCollision(platform) {
     let breakPlatform = true;
 
     // Prevents platforms from hopping the ball by side-swiping
-    if (ball.position.y <= platform.position.y) {
-        return;
-    }
+    // if (ball.position.y <= platform.position.y) {
+    //     return;
+    // }
 
     // Game over platform
     if (color === destroyColor.color && velocity >= -40) {
@@ -764,12 +814,14 @@ function processPlatformCollision(platform) {
         document.getElementById("uiLoseScore").innerHTML = "SCORE " + totalScore;
         document.getElementById("uiGameOver").style.display = "block";
         isGameOver = true;
+        breakPlatform = false;
     }
     // Bounce platforms
     else {
         if (color === doubleComboColor.color) {
 
-            ballBody.setLinearVelocity(new Ammo.btVector3(0, velocity - 5, 0));
+            // ballBody.setLinearVelocity(new Ammo.btVector3(0, velocity - 5, 0));
+            ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
             scoreModifier += 1;
         }
         // If the color doesn't match, change it and reset score
@@ -784,6 +836,7 @@ function processPlatformCollision(platform) {
             lastScoreReset = platform.position.y;
             scoreModifier = 1;
             ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
+            breakPlatform = false;
         }
         // If the color matches, only bounce
         else {
@@ -805,7 +858,7 @@ function processPlatformCollision(platform) {
     }
 }
 
-function animate(startLoop=true) {
+function animate() {
 
     ballBounds.copy(ball.geometry.boundingSphere).applyMatrix4(ball.matrixWorld);
 
@@ -818,6 +871,18 @@ function render() {
     const deltaTime = clock.getDelta();
 
     comboScore = 1 + Math.floor((lastScoreReset - ball.position.y) / platformGapSize);
+
+    // Every time the score increases, play the next sound
+    if (previousComboScore !== comboScore) {
+        previousComboScore = comboScore;
+        let soundIndex = comboScore - 1;
+        console.log(soundIndex);
+
+        if (comboScore > 0 && soundIndex < comboSounds.length) {
+            playComboSound(soundIndex);
+            // comboSounds[soundIndex].play();
+        }
+    }
 
     document.getElementById("uiComboScore").innerHTML = comboScore;
     document.getElementById("uiTotalScore").innerHTML = totalScore;
@@ -846,18 +911,22 @@ function render() {
     }
 
     // Move camera to follow ball
-    const triggerFollowDistance = 4;
-
-    if (!useOrbitControls && camera.position.y - ball.position.y >= triggerFollowDistance) {
-
-        // const velocity = ballBody.getLinearVelocity().y();
-        // camera.position.y += (deltaTime * velocity) - 1;
-
-        // cmaer
-        // console.log(camera.position.y - ball.position.y);
-        camera.position.y -= 1;//+= deltaTime * velocity * 0.5;
-        // camera.lookAt(ball.position);
+    if (camera.position.y > ball.position.y) {
+        camera.position.y = ball.position.y + 5;
     }
+    // const triggerFollowDistance = 4;
+
+    // if (!useOrbitControls && camera.position.y - ball.position.y >= triggerFollowDistance) {
+
+    //     camera.position.y = ball.position.y
+    //     // const velocity = ballBody.getLinearVelocity().y();
+    //     // camera.position.y += (deltaTime * velocity) - 1;
+
+    //     // cmaer
+    //     // console.log(camera.position.y - ball.position.y);
+    //     // camera.position.y -= 1;//+= deltaTime * velocity * 0.5;
+    //     // camera.lookAt(ball.position);
+    // }
 
     renderer.render(scene, camera);
 }
@@ -916,7 +985,7 @@ window.addEventListener('pointermove', function(event) {
     mouseX = event.clientX;
     mouseY = event.clientY;
 
-    platformGroup.rotation.y += deltaX / 10;
+    platformGroup.rotation.y += deltaX / 20;
 });
 
 

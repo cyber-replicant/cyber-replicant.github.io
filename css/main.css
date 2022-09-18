@@ -44,7 +44,8 @@ body {
 
 #uiScoreContainer {
     position: absolute;
-    right: 5%;
+    left: 50%;
+    right: 50%;
     top: 30px;
     font-size: 48px;
 }
