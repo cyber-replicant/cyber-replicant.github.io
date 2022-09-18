@@ -49,6 +49,9 @@ let breakingPlatforms = [];
 const chunkSize = twoPi / 8;
 const platformGapSize = 12;
 
+const ballMass = 200;
+const bounceVelocity = 12;
+
 const platformColors = [
     // // blue
     // {
@@ -134,8 +137,6 @@ if (searchParams.has("level")) {
         }
     }
 }
-
-const bounceVelocity = 12;
 
 const useOrbitControls = false;
 
@@ -231,7 +232,7 @@ function setupScene() {
 
     // setupParticles(scene);
 
-    setupAudio();
+    // setupAudio();
 
     render();
 }
@@ -298,6 +299,10 @@ function setupAudio() {
     //     new Audio('/static/audio/combo-18.wav'),
     // ];
 
+    let musicAudio = new Howl({ src: ["/static/audio/music-01.wav"] });
+    musicAudio.volume(0.5);
+    musicAudio.play();
+
     // comboAudio = new Howl({
     //     src: ["/static/audio/combo.wav"],
     //     sprite: {
@@ -312,6 +317,7 @@ function setupAudio() {
 
 function playComboSound(soundIndex) {
 
+    return;
     // comboAudio.pause();
     // comboAudio.currentTime = soundIndex * 0.375;
     // comboAudio.play();
@@ -515,7 +521,6 @@ function setupSkybox() {
 
 function setupBall(scene) {
 
-    const ballMass = 5;
     const ballRadius = 1;
 
     const ballGeometry = new THREE.SphereGeometry(
@@ -562,7 +567,7 @@ function setupBall(scene) {
     ballShape.setMargin(collisionMargin);
 
     ballBody = createRigidBody(ball, ballShape, ballMass);
-    ballBody.setRestitution(1);
+    // ballBody.setRestitution(1);
     ballBody.setLinearVelocity(new Ammo.btVector3(0, -10, 0));
     // body.setAngularFactor( 0, 1, 0 );
 }
@@ -1009,31 +1014,31 @@ window.addEventListener('resize', function () {
 }, false);
 
 
-// window.addEventListener('pointerdown', function(event) {
+window.addEventListener('pointerdown', function(event) {
 
-//     pointerDown = true;
-//     mouseX = event.clientX;
-//     mouseY = event.clientY;
-// });
+    pointerDown = true;
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+});
 
-// window.addEventListener('pointerup', function(event) {
+window.addEventListener('pointerup', function(event) {
 
-//     pointerDown = false;
-// });
+    pointerDown = false;
+});
 
-// window.addEventListener('pointermove', function(event) {
+window.addEventListener('pointermove', function(event) {
 
-//     if (!pointerDown || isGameOver) {
-//         return;
-//     }
+    if (!pointerDown || isGameOver) {
+        return;
+    }
 
-//     let deltaX = event.clientX - mouseX;
-//     let deltaY = event.clientY - mouseY;
-//     mouseX = event.clientX;
-//     mouseY = event.clientY;
+    let deltaX = event.clientX - mouseX;
+    let deltaY = event.clientY - mouseY;
+    mouseX = event.clientX;
+    mouseY = event.clientY;
 
-//     platformGroup.rotation.y += deltaX / 20;
-// });
+    platformGroup.rotation.y += deltaX / 20;
+});
 
 window.addEventListener('touchstart', function(event) {
 
