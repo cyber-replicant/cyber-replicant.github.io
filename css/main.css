@@ -12,8 +12,8 @@ body {
     position: absolute;
     font-size: 64px;
     top: 50%;
-    left: 35%;
-    margin: -70px 0 0 -140px;
+    left: 50%;
+    margin: -70px 0 0 -220px;
     min-width: 400px;
     display: none;
     text-align: center;
@@ -66,6 +66,28 @@ body {
     -webkit-text-stroke-width: 3px;
     -webkit-text-stroke-color: black;
 }
+
 #uiLevelContainer {
     display: block;
+}
+
+#uiScoreUpdate {
+    position: absolute;
+    left: 90px;
+    top: 0px;
+    display: none;
+}
+
+.textJump {
+    animation: textJumpAnimation .7s infinite;
+    animation-delay: calc(.1s * var(--i));
+}
+
+@keyframes textJumpAnimation {
+  0%,40%,100% {
+    transform: translateY(0)
+  }
+  20% {
+    transform: translateY(-10px)
+  }
 }

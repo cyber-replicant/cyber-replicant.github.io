@@ -34,23 +34,29 @@ let scoreModifier = 1;
 let lastScoreReset = 0;
 
 let isGameOver = false;
+let isPaused = true;
 
 let pointerDown = false;
 let mouseX = 0, mouseY = 0;
+let updateScoreTimeout = null;
 
 // List of Audio objects matching the combo score
 let comboSounds = [];
 
 // List of active platforms that can be collided with
 let platforms = [];
-// List of platforms that can no longer be collided with, but are still busy animating the breaking process
+// List of platforms that can no longer be collided with, but are still busy animating
 let breakingPlatforms = [];
 
 const chunkSize = twoPi / 8;
 const platformGapSize = 12;
 
-const ballMass = 200;
+const ballMass = 50;
 const bounceVelocity = 12;
+
+// Audio
+let musicAudio, bounceAudio, gameOverAudio, gameWinAudio, doubleComboAudio, bounceSameColorAudio, bounceHighVelocity;
+
 
 const platformColors = [
     // // blue
@@ -110,6 +116,8 @@ const crushColor = {
     "color": 0xB80D57,
     "emissive": 0x7F0A3D,
 };
+
+const musicVolume = 0.2;
 
 const searchParams = new URLSearchParams(window.location.search);
 
@@ -178,13 +186,20 @@ Ammo().then(function(AmmoLib) {
 
     document.getElementById("uiLevel").innerHTML = "LEVEL " + level;
 
-    setTimeout(() => {
-        document.getElementById("uiLevel").style.display = "none";
-    }, 500);
-
     setupScene();
     animate();
 });
+
+function startGame(event) {
+
+    event.preventDefault();
+
+    document.getElementById("uiLevelContainer").style.display = "none";
+    isPaused = false;
+    musicAudio.play();
+
+    return false;
+}
 
 function setupPhysics() {
 
@@ -233,7 +248,7 @@ function setupScene() {
 
     // setupParticles(scene);
 
-    // setupAudio();
+    setupAudio();
 
     render();
 }
@@ -253,8 +268,6 @@ function setupLights(scene) {
     scene.add(lights[1]);
     scene.add(lights[2]);
 }
-
-let comboAudio = null;
 
 function setupAudio() {
 
@@ -277,6 +290,10 @@ function setupAudio() {
         new Howl({ src: ['/static/audio/combo-16.wav'] }),
         new Howl({ src: ['/static/audio/combo-17.wav'] }),
         new Howl({ src: ['/static/audio/combo-18.wav'] }),
+        new Howl({ src: ['/static/audio/combo-19.wav'] }),
+        new Howl({ src: ['/static/audio/combo-20.wav'] }),
+        new Howl({ src: ['/static/audio/combo-21.wav'] }),
+        new Howl({ src: ['/static/audio/combo-22.wav'] }),
     ];
 
     // comboSounds = [
@@ -300,9 +317,18 @@ function setupAudio() {
     //     new Audio('/static/audio/combo-18.wav'),
     // ];
 
-    let musicAudio = new Howl({ src: ["/static/audio/music-01.wav"] });
-    musicAudio.volume(0.5);
-    musicAudio.play();
+    musicAudio = new Howl({
+        src: ["/static/audio/music-01.wav"],
+        loop: true
+    });
+    musicAudio.volume(musicVolume);
+
+    bounceAudio = new Howl({ src: ["/static/audio/bounce.wav"] });
+    gameOverAudio = new Howl({ src: ["/static/audio/gameOver.wav"] });
+    gameWinAudio = new Howl({ src: ["/static/audio/gameWin.wav"] });
+    doubleComboAudio = new Howl({ src: ["/static/audio/doubleCombo.wav"] });
+    bounceSameColorAudio = new Howl({ src: ["/static/audio/bounceSameColor.wav"] });
+    bounceHighVelocityAudio = new Howl({ src: ["/static/audio/bounceHighVelocity.wav"] });
 
     // comboAudio = new Howl({
     //     src: ["/static/audio/combo.wav"],
@@ -318,7 +344,6 @@ function setupAudio() {
 
 function playComboSound(soundIndex) {
 
-    return;
     // comboAudio.pause();
     // comboAudio.currentTime = soundIndex * 0.375;
     // comboAudio.play();
@@ -338,6 +363,10 @@ function playComboSound(soundIndex) {
             // audio.pause();
             // audio.currentTime = 0;
         }
+    }
+
+    if (toPlay === null) {
+        toPlay = comboSounds[comboSounds.length - 1];
     }
 
     toPlay.play();
@@ -570,7 +599,6 @@ function setupBall(scene) {
     ballBody = createRigidBody(ball, ballShape, ballMass);
     // ballBody.setRestitution(1);
     ballBody.setLinearVelocity(new Ammo.btVector3(0, -10, 0));
-    // body.setAngularFactor( 0, 1, 0 );
 }
 
 function setupPlatforms() {
@@ -838,20 +866,48 @@ function checkCollisions() {
         }
     }
 
+    // Process collision with base of the pillar
     if (ballBounds.intersectsBox(baseBounds)) {
-        totalScore += comboScore * scoreModifier;
+
+        const points = comboScore * scoreModifier;
+        totalScore += points;
+        displayScoreUpdate(points);
+
         // document.getElementById("uiScoreContainer").style.display = "none";
         document.getElementById("uiWinScore").innerHTML = "SCORE " + totalScore;
         document.getElementById("uiGameSuccess").style.display = "block";
         document.getElementById("nextLevelButton").href = "/?level=" + (level + 1) + "&lastColor=" + ballColor;
         isGameOver = true;
+        gameWinAudio.play();
+        musicAudio.fade(musicVolume, 0, 2000);
     }
+}
+
+function bounceBall() {
+
+    ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
+    bounceAudio.play();
+}
+
+function displayScoreUpdate(points) {
+
+    let scoreUpdate = document.getElementById("uiScoreUpdate");
+    scoreUpdate.innerHTML = "+" + points;
+    scoreUpdate.style.display = "block";
+
+    if (updateScoreTimeout !== null) {
+        clearTimeout(updateScoreTimeout);
+    }
+
+    updateScoreTimeout = setTimeout(() => {
+        scoreUpdate.style.display = "none";
+        updateScoreTimeout = null;
+    }, 1500);
 }
 
 function processPlatformCollision(platform) {
 
     const color = platform.userData.color;
-    console.log(platform.userData.isColliding);
     const velocity = ballBody.getLinearVelocity().y();
     let breakPlatform = true;
 
@@ -860,23 +916,31 @@ function processPlatformCollision(platform) {
     //     return;
     // }
 
+    const isHighVelocity = velocity <= -40;
+
     // Game over platform
-    if (color === destroyColor.color && velocity >= -40) {
+    if (color === destroyColor.color) {
         totalScore += comboScore * scoreModifier;
-        ball.material = ballMaterialCache[color];
-        ballBody.setLinearVelocity(new Ammo.btVector3(0, 2, 0));
-        // document.getElementById("uiScoreContainer").style.display = "none";
-        document.getElementById("uiLoseScore").innerHTML = "SCORE " + totalScore;
-        document.getElementById("uiGameOver").style.display = "block";
-        isGameOver = true;
-        breakPlatform = false;
+
+        if (!isHighVelocity) {
+            gameOverAudio.play();
+            musicAudio.stop();
+            ball.material = ballMaterialCache[color];
+            ballBody.setLinearVelocity(new Ammo.btVector3(0, 2, 0));
+            document.getElementById("uiLoseScore").innerHTML = "SCORE " + totalScore;
+            document.getElementById("uiGameOver").style.display = "block";
+            isGameOver = true;
+            breakPlatform = false;
+        } else {
+            bounceBall();
+        }
     }
     // Bounce platforms
     else {
         if (color === doubleComboColor.color) {
 
-            // ballBody.setLinearVelocity(new Ammo.btVector3(0, velocity - 5, 0));
             ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
+            doubleComboAudio.play();
             scoreModifier += 1;
         }
         // If the color doesn't match
@@ -887,15 +951,20 @@ function processPlatformCollision(platform) {
                 ballColor = color;
             }
 
-            totalScore += comboScore * scoreModifier;
+            let points = comboScore * scoreModifier;
+            totalScore += points;
+            displayScoreUpdate(points);
+
             lastScoreReset = platform.position.y;
             scoreModifier = 1;
-            ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
+            bounceBall();
             breakPlatform = false;
         }
         // If the color matches
         else {
+            bounceSameColorAudio.play();
             ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
+            // bounceBall();
             // breakPlatform = false;
         }
     }
@@ -910,6 +979,14 @@ function processPlatformCollision(platform) {
         mesh.material.transparent = true;
         mesh.userData.sides.material.transparent = true;
         breakingPlatforms.push(platform);
+
+        // const shape = new Ammo.btSphereShape(10);
+        // const body = createRigidBody(mesh, shape, 10);
+        // body.setLinearVelocity(new Ammo.btVector3(-4, -10, 0));
+
+        // setTimeout(() => {
+        //     physicsWorld.removeRigidBody(body);
+        // }, 500);
     }
 }
 
@@ -931,9 +1008,11 @@ function render() {
     if (previousComboScore !== comboScore) {
         previousComboScore = comboScore;
         let soundIndex = comboScore - 1;
-        console.log(soundIndex);
 
         if (comboScore > 0 && soundIndex < comboSounds.length) {
+            // let rate = 1 + (comboScore * 0.01);
+            // console.log(rate);
+            // musicAudio.rate(rate);
             playComboSound(soundIndex);
             // comboSounds[soundIndex].play();
         }
@@ -943,7 +1022,7 @@ function render() {
     document.getElementById("uiTotalScore").innerHTML = totalScore;
     document.getElementById("uiScoreModifier").innerHTML = "x" + scoreModifier;
 
-    if (!isGameOver) {
+    if (!isGameOver && !isPaused) {
         checkCollisions();
         updatePhysics(deltaTime);
     }
@@ -998,10 +1077,10 @@ function updatePhysics(deltaTime) {
 
         const objThree = rigidBodies[i];
         const objPhys = objThree.userData.physicsBody;
-        const ms = objPhys.getMotionState();
+        const motion = objPhys.getMotionState();
 
-        if (ms) {
-            ms.getWorldTransform(transform);
+        if (motion) {
+            motion.getWorldTransform(transform);
             const p = transform.getOrigin();
             const q = transform.getRotation();
             objThree.position.set(p.x(), p.y(), p.z());
@@ -1047,53 +1126,3 @@ window.addEventListener('pointermove', function(event) {
     platformGroup.rotation.y += deltaX / 20;
     console.log(mouseX + " " + mouseY);
 });
-
-window.addEventListener('touchstart', function(event) {
-
-    pointerDown = true;
-    mouseX = event.clientX;
-    mouseY = event.clientY;
-    console.log(mouseX + " " + mouseY);
-});
-
-window.addEventListener('touchend', function(event) {
-
-    pointerDown = false;
-    console.log(mouseX + " " + mouseY);
-});
-
-window.addEventListener('touchmove', function(event) {
-
-    if (!pointerDown || isGameOver) {
-        return;
-    }
-
-    let deltaX = event.clientX - mouseX;
-    let deltaY = event.clientY - mouseY;
-    mouseX = event.clientX;
-    mouseY = event.clientY;
-
-    platformGroup.rotation.y += deltaX / 20;
-    console.log(mouseX + " " + mouseY);
-});
-
-
-// window.addEventListener( 'keydown', function ( event ) {
-
-//     switch ( event.keyCode ) {
-//         // D
-//         case 68:
-//             comboAudio.play('combo02');
-//             // camera.position.y += 10;
-//             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,1,0));
-//             break;
-//         // A
-//         case 65:
-//             comboAudio.play('combo01');
-//             // camera.position.y -= 10;
-//             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,-1,0));
-//             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
-//             break;
-//     }
-
-// } );
