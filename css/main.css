@@ -25,6 +25,7 @@ body {
     padding: 20px 20px 20px 20px;
     margin-bottom: 10px;
     display: block;
+    min-width: 400px;
 }
 .button {
     vertical-align: middle;
@@ -47,7 +48,7 @@ body {
     left: 50%;
     right: 50%;
     top: 30px;
-    font-size: 48px;
+    font-size: 60px;
     text-align: center;
 }
 .uiScoreHeading {
@@ -71,23 +72,65 @@ body {
     display: block;
 }
 
+#startButton {
+    display: none;
+}
+
 #uiScoreUpdate {
     position: absolute;
     left: 90px;
     top: 0px;
     display: none;
-}
-
-.textJump {
-    animation: textJumpAnimation .7s infinite;
+    animation: waivy .7s infinite;
     animation-delay: calc(.1s * var(--i));
 }
 
-@keyframes textJumpAnimation {
+#uiComboScore {
+    -webkit-text-fill-color: #FFEF68; /* Will override color (regardless of order) */
+    -webkit-text-stroke-width: 3px;
+    -webkit-text-stroke-color: #B80D57;
+    display: none;
+    /*animation: wiggle 1s linear infinite;*/
+    animation: waivy .4s infinite;
+}
+
+#uiScoreModifier {
+    -webkit-text-fill-color: #FF8E56; /* Will override color (regardless of order) */
+    -webkit-text-stroke-width: 3px;
+    -webkit-text-stroke-color: #B80D57;
+    display: none;
+    animation: wiggle 1s linear infinite;
+}
+
+@keyframes waivy {
   0%,40%,100% {
     transform: translateY(0)
   }
   20% {
     transform: translateY(-10px)
+  }
+}
+
+@keyframes wiggle {
+  0%, 7% {
+    transform: rotateZ(0);
+  }
+  15% {
+    transform: rotateZ(-15deg);
+  }
+  20% {
+    transform: rotateZ(10deg);
+  }
+  25% {
+    transform: rotateZ(-10deg);
+  }
+  30% {
+    transform: rotateZ(6deg);
+  }
+  35% {
+    transform: rotateZ(-4deg);
+  }
+  40%, 100% {
+    transform: rotateZ(0);
   }
 }

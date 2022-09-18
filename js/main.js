@@ -1,10 +1,11 @@
-// import * as THREE from 'three';
-
-// import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+/*
+* Helix Jump-like code audition
+*/
 
 const twoPi = Math.PI * 2;
 
-// THREE basic constructs
+
+// THREE main components
 let camera, clock, scene, renderer;
 
 // THREE groups
@@ -14,17 +15,30 @@ let generalGroup, platformGroup, ballGroup;
 let base, baseBounds, ball, ballBounds, ballBody;
 let skybox;
 
+
 // Ammo.js Physics variables
+let physicsWorld, transform;
+
 const gravityConstant = 20;
 const collisionMargin = 0.05;
 const rigidBodies = [];
-let physicsWorld;
-let transform;
 
-const pos = new THREE.Vector3();
-const quat = new THREE.Quaternion();
 
-// Game variables
+// Game settings
+const chunkSize = twoPi / 8;
+const platformGapSize = 12;
+
+const ballMass = 50;
+const bounceVelocity = 12;
+const musicVolume = 0.3;
+
+const cameraYDistanceFromBall = 5;
+
+let level = 1;
+let numPlatforms = 20;
+let numDestroyChunksToSpawn = 2;
+let numDoubleComboChunksToSpawn = 3;
+
 let totalScore = 0;
 let previousComboScore = 0;
 let comboScore = 0;
@@ -48,38 +62,18 @@ let platforms = [];
 // List of platforms that can no longer be collided with, but are still busy animating
 let breakingPlatforms = [];
 
-const chunkSize = twoPi / 8;
-const platformGapSize = 12;
-
-const ballMass = 50;
-const bounceVelocity = 12;
-
 // Audio
-let musicAudio, bounceAudio, gameOverAudio, gameWinAudio, doubleComboAudio, bounceSameColorAudio, bounceHighVelocityAudio;
+let musicAudio, gameOverAudio, gameWinAudio, doubleComboAudio, bounceAudio, bounceSameColorAudio, bounceHighVelocityAudio;
 
+// UI
+let uiComboScore, uiScoreModifier, ui
+
+const useOrbitControls = false;
+
+// A dictionary of Material objects to use whenever the ball changes color
+const ballMaterialCache = {};
 
 const platformColors = [
-    // // blue
-    // {
-    //     "color": 0x0066AF,
-    //     "emissive": 0x003860,
-    // },
-    // // pink
-    // {
-    //     "color": 0xED217C,
-    //     "emissive": 0xA81758,
-    // },
-    // // yellow
-    // {
-    //     "color": 0xD3D15B,
-    //     "emissive": 0x686418,
-    // },
-    // // green
-    // {
-    //     "color": 0x16994A,
-    //     "emissive": 0x094C22,
-    // },
-
     // maroon
     {
         "color": 0x890D18,
@@ -112,48 +106,225 @@ const doubleComboColor = {
     "emissive": 0xB76C8C,
 };
 
-const crushColor = {
-    "color": 0xB80D57,
-    "emissive": 0x7F0A3D,
-};
-
-const musicVolume = 0.2;
-
-const searchParams = new URLSearchParams(window.location.search);
-
-let level = 1;
-let numPlatforms = 20;
-let numDestroyChunksToSpawn = 2;
-let numDoubleComboChunksToSpawn = 3;
 let ballColor = platformColors[0].color;
 
-if (searchParams.has("level")) {
-    level = parseInt(searchParams.get("level"));
 
-    // Add 10 extra platforms per level
-    numPlatforms += (level - 1) * 10;
+// ----------------------------------------------------------------------------------------------------------------
+// Entry point
+// ----------------------------------------------------------------------------------------------------------------
 
-    numDestroyChunksToSpawn += level;
-    numDoubleComboChunksToSpawn += level;
+Ammo().then(function(AmmoLib) {
 
-    let lastColor = searchParams.get("lastColor");
+    Ammo = AmmoLib;
 
-    for (const color of platformColors) {
-        if (color.color === lastColor) {
-            ballColor = lastColor;
-            break;
+    setupScene();
+    animate();
+});
+
+function startGame(event) {
+
+    event.preventDefault();
+
+    document.getElementById("uiLevelContainer").style.display = "none";
+    isPaused = false;
+    musicAudio.play();
+
+    return false;
+}
+
+
+// ----------------------------------------------------------------------------------------------------------------
+// Game loop
+// ----------------------------------------------------------------------------------------------------------------
+
+function animate() {
+
+    ballBounds.copy(ball.geometry.boundingSphere).applyMatrix4(ball.matrixWorld);
+
+    render();
+    requestAnimationFrame(animate);
+}
+
+function render() {
+
+    const deltaTime = clock.getDelta();
+
+    // Follow the ball, but avoid following for the upward bounces
+    if (camera.position.y - cameraYDistanceFromBall > ball.position.y) {
+        camera.position.y = ball.position.y + cameraYDistanceFromBall;
+    }
+
+    // Every time the combo score increases, play the next sound
+    comboScore = 1 + Math.floor((lastScoreReset - ball.position.y) / platformGapSize);
+
+    if (previousComboScore !== comboScore) {
+        previousComboScore = comboScore;
+        let soundIndex = comboScore - 1;
+
+        if (comboScore > 0 && soundIndex < comboSounds.length) {
+            playComboSound(soundIndex);
         }
+    }
+
+    // Update the UI
+    uiComboScore.innerHTML = comboScore;
+    uiTotalScore.innerHTML = totalScore;
+    uiScoreModifier.innerHTML = "x" + scoreModifier;
+
+    if (scoreModifier > 1) {
+        uiScoreModifier.style.display = "block";
+    }
+    else {
+        uiScoreModifier.style.display = "none";
+    }
+
+    if (comboScore > 0) {
+        uiComboScore.style.display = "block";
+    }
+    else {
+        uiComboScore.style.display = "none";
+    }
+
+    // Check for collisions and update physics objects
+    if (!isGameOver && !isPaused) {
+        checkCollisions();
+        updatePhysics(deltaTime);
+    }
+
+    // Animate platforms that are in the process of breaking
+    for (let platform of breakingPlatforms) {
+
+        let mesh = platform.userData.platformMesh;
+        let sides = mesh.userData.sides;
+
+        let opacityChange = deltaTime * 3;
+        mesh.material.opacity -= opacityChange;
+        sides.material.opacity -= opacityChange;
+
+        if (mesh.material.opacity <= 0) {
+
+            mesh.visible = false;
+            let index = breakingPlatforms.indexOf(platform);
+            breakingPlatforms.splice(index, 1);
+        }
+    }
+
+    renderer.render(scene, camera);
+}
+
+function checkCollisions() {
+
+    // Check collisions against all possible platforms
+    for (const platform of platforms) {
+
+        const cubeBounds = platform.userData.cubeBounds;
+        cubeBounds.copy(platform.geometry.boundingBox).applyMatrix4(platform.matrixWorld);
+
+        // Bounce the ball if it intersects with any of the bounding cubes
+        if (ballBounds.intersectsBox(cubeBounds) && !platform.userData.isColliding) {
+            platform.userData.isColliding = true;
+            processPlatformCollision(platform);
+
+        // If it was colliding before but isn't anymore, update the isColliding field
+        } else if (platform.userData.isColliding) {
+            platform.userData.isColliding = false;
+        }
+    }
+
+    // Process collision with base of the pillar
+    if (ballBounds.intersectsBox(baseBounds)) {
+
+        finishCombo(base.position.y);
+
+        // document.getElementById("uiScoreContainer").style.display = "none";
+        document.getElementById("uiWinScore").innerHTML = "SCORE " + totalScore;
+        document.getElementById("uiGameSuccess").style.display = "block";
+        document.getElementById("nextLevelButton").href = "/?level=" + (level + 1) + "&lastColor=" + ballColor;
+
+        isGameOver = true;
+        gameWinAudio.play();
+        musicAudio.fade(musicVolume, 0, 3000);
     }
 }
 
-const useOrbitControls = false;
+function processPlatformCollision(platform) {
 
-// At startup we create a dictionary of Material objects for each possible platform color
-// These are used whenever the ball changes color
-const ballMaterialCache = {};
+    const color = platform.userData.color;
+    const velocity = ballBody.getLinearVelocity().y();
+    let breakPlatform = true;
+
+    // Prevents platforms from hopping the ball by side-swiping
+    // if (ball.position.y <= platform.position.y) {
+    //     return;
+    // }
+
+    const isHighVelocity = velocity <= -40;
+
+    // Game over platform
+    if (color === destroyColor.color) {
+        finishCombo(platform.position.y);
+
+        if (!isHighVelocity) {
+            gameOverAudio.play();
+            musicAudio.stop();
+            ball.material = ballMaterialCache[color];
+            ballBody.setLinearVelocity(new Ammo.btVector3(0, 2, 0));
+
+            document.getElementById("uiLoseScore").innerHTML = "SCORE " + totalScore;
+            document.getElementById("uiGameOver").style.display = "block";
+            isGameOver = true;
+            breakPlatform = false;
+        } else {
+            platform.userData.platformMesh.material = ball.material.clone();
+            bounceHighVelocityAudio.play();
+            ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
+        }
+    }
+    // Bounce platforms
+    else {
+        if (color === doubleComboColor.color) {
+
+            ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
+            doubleComboAudio.play();
+            scoreModifier += 1;
+        }
+        // If the color doesn't match
+        else if (color !== ballColor) {
+
+            if (color !== destroyColor.color) {
+                ball.material = ballMaterialCache[color];
+                ballColor = color;
+            }
+
+            finishCombo(platform.position.y);
+
+            bounceAudio.play();
+            ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
+            // breakPlatform = false;
+        }
+        // If the color matches
+        else {
+            bounceSameColorAudio.play();
+            ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
+            // breakPlatform = false;
+        }
+    }
+
+    // if (isHighVelocity) {
+    //     for (let moo of platforms) {
+    //         if (moo.position.y === platform.position.y) {
+    //             destroyPlatform(moo);
+    //         }
+    //     }
+    // }
+
+    if (breakPlatform) {
+        destroyPlatform(platform);
+    }
+}
 
 // ----------------------------------------------------------------------------------------------------------------
-// Helpers functions
+// Helper functions
 // ----------------------------------------------------------------------------------------------------------------
 
 function getRandomInt(min, max) {
@@ -175,31 +346,189 @@ function shuffleArray(array) {
   }
 }
 
+function finishCombo(positionY) {
+
+    // Update the UI scores when the combo finishes
+    const scoreIncrease = comboScore * scoreModifier;
+    totalScore += scoreIncrease;
+
+    lastScoreReset = positionY;
+    scoreModifier = 1;
+
+    let scoreUpdate = document.getElementById("uiScoreUpdate");
+    scoreUpdate.innerHTML = "+" + scoreIncrease;
+    scoreUpdate.style.display = "block";
+
+    if (updateScoreTimeout !== null) {
+        clearTimeout(updateScoreTimeout);
+    }
+
+    updateScoreTimeout = setTimeout(() => {
+        scoreUpdate.style.display = "none";
+        updateScoreTimeout = null;
+    }, 800);
+}
+
+function destroyPlatform(platform) {
+
+    let index = platforms.indexOf(platform);
+    platforms.splice(index, 1);
+
+    let mesh = platform.userData.platformMesh;
+    mesh.material.transparent = true;
+    mesh.userData.sides.material.transparent = true;
+    breakingPlatforms.push(platform);
+
+    // const shape = new Ammo.btSphereShape(10);
+    // const body = createRigidBody(mesh, shape, 10);
+    // body.setLinearVelocity(new Ammo.btVector3(-4, -10, 0));
+
+    // setTimeout(() => {
+    //     physicsWorld.removeRigidBody(body);
+    // }, 500);
+}
+
+function playComboSound(soundIndex) {
+
+    let soundToPlay = null;
+
+    for (let i = 0; i < comboSounds.length; i++) {
+
+        const sound = comboSounds[i];
+
+        if (soundIndex === i) {
+            soundToPlay = sound;
+        } else {
+            sound.mute();
+        }
+    }
+
+    if (soundToPlay === null) {
+        soundToPlay = comboSounds[comboSounds.length - 1];
+    }
+
+    soundToPlay.play();
+}
+
 
 // ----------------------------------------------------------------------------------------------------------------
-// Physics setup
+// Input handling
 // ----------------------------------------------------------------------------------------------------------------
 
-Ammo().then(function(AmmoLib) {
+window.addEventListener('resize', function() {
 
-    Ammo = AmmoLib;
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
 
-    document.getElementById("uiLevel").innerHTML = "LEVEL " + level;
+}, false);
 
-    setupScene();
-    animate();
-});
 
-function startGame(event) {
+window.addEventListener('pointerdown', function(event) {
+
+    if (isGameOver || isPaused) {
+        return;
+    }
 
     event.preventDefault();
 
-    document.getElementById("uiLevelContainer").style.display = "none";
-    isPaused = false;
-    musicAudio.play();
+    pointerDown = true;
+    mouseX = event.clientX;
+    mouseY = event.clientY;
 
     return false;
+});
+
+window.addEventListener('pointerup', function(event) {
+
+    if (isGameOver || isPaused) {
+        return;
+    }
+
+    event.preventDefault();
+    pointerDown = false;
+    return false;
+});
+
+window.addEventListener('pointermove', function(event) {
+
+    if (!pointerDown || isGameOver || isPaused) {
+        return;
+    }
+
+    event.preventDefault();
+
+    let deltaX = event.clientX - mouseX;
+    let deltaY = event.clientY - mouseY;
+    mouseX = event.clientX;
+    mouseY = event.clientY;
+
+    platformGroup.rotation.y += deltaX / 20;
+    // console.log(mouseX + " " + mouseY);
+
+    return false;
+});
+
+
+// ----------------------------------------------------------------------------------------------------------------
+// Physics handling
+// ----------------------------------------------------------------------------------------------------------------
+
+function updatePhysics(deltaTime) {
+
+    // Step world
+    physicsWorld.stepSimulation(deltaTime * 2, 10);
+
+    // Update rigid bodies
+    for (let i = 0, il = rigidBodies.length; i < il; i ++) {
+
+        const objThree = rigidBodies[i];
+        const objPhys = objThree.userData.physicsBody;
+        const motion = objPhys.getMotionState();
+
+        if (motion) {
+            motion.getWorldTransform(transform);
+            const p = transform.getOrigin();
+            const q = transform.getRotation();
+            objThree.position.set(p.x(), p.y(), p.z());
+            objThree.quaternion.set(q.x(), q.y(), q.z(), q.w());
+        }
+    }
 }
+
+function createRigidBody(object, shape, mass) {
+
+    const position = object.position;
+    const quaternion = object.quaternion;
+
+    const bodyTransform = new Ammo.btTransform();
+    bodyTransform.setIdentity();
+    bodyTransform.setOrigin(new Ammo.btVector3(position.x, position.y, position.z));
+    bodyTransform.setRotation(new Ammo.btQuaternion(quaternion.x, quaternion.y, quaternion.z, quaternion.w));
+    const motionState = new Ammo.btDefaultMotionState(bodyTransform);
+
+    const localInertia = new Ammo.btVector3(0, 0, 0);
+    shape.calculateLocalInertia(mass, localInertia);
+
+    const info = new Ammo.btRigidBodyConstructionInfo(mass, motionState, shape, localInertia);
+    const body = new Ammo.btRigidBody(info);
+
+    body.setFriction(0.5);
+    object.userData.physicsBody = body;
+
+    if (mass > 0) {
+        rigidBodies.push(object);
+        body.setActivationState(4); // Disable deactivation
+    }
+
+    physicsWorld.addRigidBody(body);
+    return body;
+}
+
+
+// ----------------------------------------------------------------------------------------------------------------
+// Scene setup
+// ----------------------------------------------------------------------------------------------------------------
 
 function setupPhysics() {
 
@@ -213,13 +542,37 @@ function setupPhysics() {
     transform = new Ammo.btTransform();
 }
 
-
-// ----------------------------------------------------------------------------------------------------------------
-// Scene setup
-// ----------------------------------------------------------------------------------------------------------------
-
 function setupScene() {
 
+    // Parse query parameters
+    const searchParams = new URLSearchParams(window.location.search);
+
+    if (searchParams.has("level")) {
+        level = parseInt(searchParams.get("level"));
+
+        // Add 10 extra platforms per level
+        numPlatforms += (level - 1) * 10;
+
+        numDestroyChunksToSpawn *= level;
+        numDoubleComboChunksToSpawn += level;
+
+        let lastColor = searchParams.get("lastColor");
+
+        for (const color of platformColors) {
+            if (color.color === lastColor) {
+                ballColor = lastColor;
+                break;
+            }
+        }
+    }
+
+    document.getElementById("uiLevel").innerHTML = "LEVEL " + level;
+
+    uiComboScore = document.getElementById("uiComboScore");
+    uiTotalScore = document.getElementById("uiTotalScore");
+    uiScoreModifier = document.getElementById("uiScoreModifier");
+
+    // Setup THREE components
     clock = new THREE.Clock();
 
     scene = new THREE.Scene();
@@ -243,17 +596,20 @@ function setupScene() {
     setupPhysics();
 
     setupLevel(scene);
-
-    camera.lookAt(ball.position);
-
-    // setupParticles(scene);
-
     setupAudio();
 
+    camera.lookAt(ball.position);
     render();
+
+    // Game is laggy if started too soon, let objects load first
+    setTimeout(() => {
+
+        document.getElementById("startButton").style.display = "block";
+        document.getElementById("uiLoading").style.display = "none";
+    }, 500);
 }
 
-function setupLights(scene) {
+function setupLights() {
 
     const lights = [];
     lights[0] = new THREE.PointLight(0xffffff, 1, 0);
@@ -267,6 +623,29 @@ function setupLights(scene) {
     scene.add(lights[0]);
     scene.add(lights[1]);
     scene.add(lights[2]);
+}
+
+function setupLevel() {
+
+    generalGroup = new THREE.Group();
+    platformGroup = new THREE.Group();
+    ballGroup = new THREE.Group();
+
+    scene.add(generalGroup);
+    scene.add(platformGroup);
+    scene.add(ballGroup);
+
+    // Central pillar
+    setupPillar();
+
+    // Platforms
+    setupPlatforms();
+
+    // Ball
+    setupBall();
+
+    // Skybox
+    setupSkybox();
 }
 
 function setupAudio() {
@@ -296,103 +675,19 @@ function setupAudio() {
         new Howl({ src: ['/static/audio/combo-22.wav'] }),
     ];
 
-    // comboSounds = [
-    //     new Audio('/static/audio/combo-01.wav'),
-    //     new Audio('/static/audio/combo-02.wav'),
-    //     new Audio('/static/audio/combo-03.wav'),
-    //     new Audio('/static/audio/combo-04.wav'),
-    //     new Audio('/static/audio/combo-05.wav'),
-    //     new Audio('/static/audio/combo-06.wav'),
-    //     new Audio('/static/audio/combo-07.wav'),
-    //     new Audio('/static/audio/combo-08.wav'),
-    //     new Audio('/static/audio/combo-09.wav'),
-    //     new Audio('/static/audio/combo-10.wav'),
-    //     new Audio('/static/audio/combo-11.wav'),
-    //     new Audio('/static/audio/combo-12.wav'),
-    //     new Audio('/static/audio/combo-13.wav'),
-    //     new Audio('/static/audio/combo-14.wav'),
-    //     new Audio('/static/audio/combo-15.wav'),
-    //     new Audio('/static/audio/combo-16.wav'),
-    //     new Audio('/static/audio/combo-17.wav'),
-    //     new Audio('/static/audio/combo-18.wav'),
-    // ];
-
     musicAudio = new Howl({
         src: ["/static/audio/music-01.wav"],
         loop: true
     });
     musicAudio.volume(musicVolume);
 
-    bounceAudio = new Howl({ src: ["/static/audio/bounce.wav"] });
     gameOverAudio = new Howl({ src: ["/static/audio/gameOver.wav"] });
     gameWinAudio = new Howl({ src: ["/static/audio/gameWin.wav"] });
     doubleComboAudio = new Howl({ src: ["/static/audio/doubleCombo.wav"] });
+
+    bounceAudio = new Howl({ src: ["/static/audio/bounce.wav"] });
     bounceSameColorAudio = new Howl({ src: ["/static/audio/bounceSameColor.wav"] });
     bounceHighVelocityAudio = new Howl({ src: ["/static/audio/bounceHighVelocity.wav"] });
-
-    // comboAudio = new Howl({
-    //     src: ["/static/audio/combo.wav"],
-    //     sprite: {
-    //         combo01: [0, 500],
-    //         combo02: [750, 1000],
-    //         combo03: [1500, 1000],
-    //     }
-    // });
-    // comboAudio.play('combo03');
-    // comboAudio.preload = "auto";
-}
-
-function playComboSound(soundIndex) {
-
-    // comboAudio.pause();
-    // comboAudio.currentTime = soundIndex * 0.375;
-    // comboAudio.play();
-
-    let toPlay = null;
-
-    for (let i = 0; i < comboSounds.length; i++) {
-
-        const audio = comboSounds[i];
-
-        if (soundIndex === i) {
-            toPlay = audio;
-            // let id = audio.play();
-            // playingIds.push(id);
-        } else {
-            audio.mute();
-            // audio.pause();
-            // audio.currentTime = 0;
-        }
-    }
-
-    if (toPlay === null) {
-        toPlay = comboSounds[comboSounds.length - 1];
-    }
-
-    toPlay.play();
-}
-
-function setupLevel(scene) {
-
-    generalGroup = new THREE.Group();
-    platformGroup = new THREE.Group();
-    ballGroup = new THREE.Group();
-
-    scene.add(generalGroup);
-    scene.add(platformGroup);
-    scene.add(ballGroup);
-
-    // Central pillar
-    setupPillar();
-
-    // Platforms
-    setupPlatforms();
-
-    // Ball
-    setupBall(scene);
-
-    // Skybox
-    setupSkybox();
 }
 
 function setupPillar() {
@@ -465,68 +760,6 @@ function setupPillar() {
     baseBounds.setFromObject(box);
 }
 
-
-function randomVelocity() {
-    var dx = 0.001 + 0.003*Math.random();
-    var dy = 0.001 + 0.003*Math.random();
-    var dz = 0.001 + 0.003*Math.random();
-    if (Math.random() < 0.5) {
-        dx = -dx;
-    }
-    if (Math.random() < 0.5) {
-        dy = -dy;
-    }
-    if (Math.random() < 0.5) {
-        dz = -dz;
-    }
-    return new THREE.Vector3(dx,dy,dz);
-}
-
-
-function setupParticles(scene) {
-
-    var MAX_POINTS = 500;
-    var pointsInUse = 2500;
-
-    let points = new Array(MAX_POINTS);
-    let spinSpeeds = new Array(MAX_POINTS);
-    let driftSpeeds = new Array(MAX_POINTS);
-    let pointsBuffer = new Float32Array( 3*MAX_POINTS );
-    let colorBuffer = new Float32Array( 3*MAX_POINTS );
-    var i = 0;
-    var yaxis = new THREE.Vector3(0,1,0);
-    while (i < MAX_POINTS) {
-        var x = 2*Math.random() - 1;
-        var y = 2*Math.random() - 1;
-        var z = 2*Math.random() - 1;
-        if ( x*x + y*y + z*z < 1 ) {  // only use points inside the unit sphere
-            var angularSpeed = 0.001 + Math.random()/50;  // angular speed of rotation about the y-axis
-            spinSpeeds[i] = new THREE.Quaternion();
-            spinSpeeds[i].setFromAxisAngle(yaxis,angularSpeed);  // The quaternian for rotation by angularSpeed radians about the y-axis.
-            driftSpeeds[i] = randomVelocity();
-            points[i] = new THREE.Vector3(x,y,z);
-         pointsBuffer[3*i] = x;
-         pointsBuffer[3*i+1] = y;
-         pointsBuffer[3*i+2] = z;
-         colorBuffer[3*i] = 0.25 + 0.75*Math.random();
-         colorBuffer[3*i+1] = 0.25 + 0.75*Math.random();
-         colorBuffer[3*i+2] = 0.25 + 0.75*Math.random();
-            i++;
-        }
-    }
-    let geometry = new THREE.BufferGeometry();
-    geometry.setAttribute("position", new THREE.BufferAttribute(pointsBuffer,3));
-    geometry.setAttribute("color", new THREE.BufferAttribute(colorBuffer,3));
-    geometry.setDrawRange(0,pointsInUse);
-    let material = new THREE.PointsMaterial({
-            color: "yellow",
-            size: 2,
-            sizeAttenuation: false
-        });
-    let pointCloud = new THREE.Points(geometry,material);
-    scene.add(pointCloud);
-}
-
 function setupSkybox() {
 
     const skyboxTexturePaths = [
@@ -549,7 +782,7 @@ function setupSkybox() {
     generalGroup.add(object);
 }
 
-function setupBall(scene) {
+function setupBall() {
 
     const ballRadius = 1;
 
@@ -639,11 +872,11 @@ function setupPlatforms() {
 
         let hasDestroyChunk = destroyChunks[i];
         let hasDoubleComboChunk = doubleComboChunks[i];
-        generatePlatform(i * -platformGapSize, hasDestroyChunk, hasDoubleComboChunk);
+        generatePlatformsAtHeight(i * -platformGapSize, hasDestroyChunk, hasDoubleComboChunk);
     }
 }
 
-function generatePlatform(platformY, hasDestroyChunk, hasDoubleComboChunk) {
+function generatePlatformsAtHeight(platformY, hasDestroyChunk, hasDoubleComboChunk) {
 
     // Rotations and positions of platform chunks
     const rotations = [
@@ -817,345 +1050,3 @@ function generatePlatformChunk(rotationY, position, colorData) {
 
     return chunk;
 }
-
-function createRigidBody(object, shape, mass) {
-
-    const position = object.position;
-    const quaternion = object.quaternion;
-
-    const bodyTransform = new Ammo.btTransform();
-    bodyTransform.setIdentity();
-    bodyTransform.setOrigin(new Ammo.btVector3(position.x, position.y, position.z));
-    bodyTransform.setRotation(new Ammo.btQuaternion(quaternion.x, quaternion.y, quaternion.z, quaternion.w));
-    const motionState = new Ammo.btDefaultMotionState(bodyTransform);
-
-    const localInertia = new Ammo.btVector3(0, 0, 0);
-    shape.calculateLocalInertia(mass, localInertia);
-
-    const info = new Ammo.btRigidBodyConstructionInfo(mass, motionState, shape, localInertia);
-    const body = new Ammo.btRigidBody(info);
-
-    body.setFriction(0.5);
-    object.userData.physicsBody = body;
-
-    if (mass > 0) {
-
-        rigidBodies.push(object);
-        body.setActivationState(4); // Disable deactivation
-    }
-
-    physicsWorld.addRigidBody(body);
-    return body;
-}
-
-function checkCollisions() {
-
-    for (const platform of platforms) {
-
-        const cubeBounds = platform.userData.cubeBounds;
-        cubeBounds.copy(platform.geometry.boundingBox).applyMatrix4(platform.matrixWorld);
-
-        // Bounce the ball if it intersects with any of the bounding cubes
-        if (ballBounds.intersectsBox(cubeBounds) && !platform.userData.isColliding) {
-            platform.userData.isColliding = true;
-            processPlatformCollision(platform);
-
-        // If it was colliding before but isn't anymore, update the isColliding field
-        } else if (platform.userData.isColliding) {
-            platform.userData.isColliding = false;
-        }
-    }
-
-    // Process collision with base of the pillar
-    if (ballBounds.intersectsBox(baseBounds)) {
-
-        const points = comboScore * scoreModifier;
-        totalScore += points;
-        displayScoreUpdate(points);
-
-        // document.getElementById("uiScoreContainer").style.display = "none";
-        document.getElementById("uiWinScore").innerHTML = "SCORE " + totalScore;
-        document.getElementById("uiGameSuccess").style.display = "block";
-        document.getElementById("nextLevelButton").href = "/?level=" + (level + 1) + "&lastColor=" + ballColor;
-        isGameOver = true;
-        gameWinAudio.play();
-        musicAudio.fade(musicVolume, 0, 2000);
-    }
-}
-
-function bounceBall() {
-
-    ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
-    bounceAudio.play();
-}
-
-function displayScoreUpdate(points) {
-
-    let scoreUpdate = document.getElementById("uiScoreUpdate");
-    scoreUpdate.innerHTML = "+" + points;
-    scoreUpdate.style.display = "block";
-
-    if (updateScoreTimeout !== null) {
-        clearTimeout(updateScoreTimeout);
-    }
-
-    updateScoreTimeout = setTimeout(() => {
-        scoreUpdate.style.display = "none";
-        updateScoreTimeout = null;
-    }, 1500);
-}
-
-function processPlatformCollision(platform) {
-
-    const color = platform.userData.color;
-    const velocity = ballBody.getLinearVelocity().y();
-    let breakPlatform = true;
-
-    // Prevents platforms from hopping the ball by side-swiping
-    // if (ball.position.y <= platform.position.y) {
-    //     return;
-    // }
-
-    const isHighVelocity = velocity <= -40;
-
-    // Game over platform
-    if (color === destroyColor.color) {
-        totalScore += comboScore * scoreModifier;
-
-        if (!isHighVelocity) {
-            gameOverAudio.play();
-            musicAudio.stop();
-            ball.material = ballMaterialCache[color];
-            ballBody.setLinearVelocity(new Ammo.btVector3(0, 2, 0));
-            document.getElementById("uiLoseScore").innerHTML = "SCORE " + totalScore;
-            document.getElementById("uiGameOver").style.display = "block";
-            isGameOver = true;
-            breakPlatform = false;
-        } else {
-            // bounceBall();
-            platform.userData.platformMesh.material = ball.material.clone();
-            bounceHighVelocityAudio.play();
-            ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
-        }
-    }
-    // Bounce platforms
-    else {
-        if (color === doubleComboColor.color) {
-
-            ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
-            doubleComboAudio.play();
-            scoreModifier += 1;
-        }
-        // If the color doesn't match
-        else if (color !== ballColor) {
-
-            if (color !== destroyColor.color) {
-                ball.material = ballMaterialCache[color];
-                ballColor = color;
-            }
-
-            let points = comboScore * scoreModifier;
-            totalScore += points;
-            displayScoreUpdate(points);
-
-            lastScoreReset = platform.position.y;
-            scoreModifier = 1;
-            bounceBall();
-            // breakPlatform = false;
-        }
-        // If the color matches
-        else {
-            bounceSameColorAudio.play();
-            ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
-            // bounceBall();
-            // breakPlatform = false;
-        }
-    }
-
-    // if (isHighVelocity) {
-    //     for (let moo of platforms) {
-    //         if (moo.position.y === platform.position.y) {
-    //             destroyPlatform(moo);
-    //         }
-    //     }
-    // }
-
-    if (breakPlatform) {
-        destroyPlatform(platform);
-    }
-}
-
-function destroyPlatform(platform) {
-
-    let index = platforms.indexOf(platform);
-    platforms.splice(index, 1);
-
-    let mesh = platform.userData.platformMesh;
-    mesh.material.transparent = true;
-    mesh.userData.sides.material.transparent = true;
-    breakingPlatforms.push(platform);
-
-    // const shape = new Ammo.btSphereShape(10);
-    // const body = createRigidBody(mesh, shape, 10);
-    // body.setLinearVelocity(new Ammo.btVector3(-4, -10, 0));
-
-    // setTimeout(() => {
-    //     physicsWorld.removeRigidBody(body);
-    // }, 500);
-}
-
-function animate() {
-
-    ballBounds.copy(ball.geometry.boundingSphere).applyMatrix4(ball.matrixWorld);
-
-    render();
-    requestAnimationFrame(animate);
-}
-
-function render() {
-
-    const deltaTime = clock.getDelta();
-
-    comboScore = 1 + Math.floor((lastScoreReset - ball.position.y) / platformGapSize);
-
-    // Every time the score increases, play the next sound
-    if (previousComboScore !== comboScore) {
-        previousComboScore = comboScore;
-        let soundIndex = comboScore - 1;
-
-        if (comboScore > 0 && soundIndex < comboSounds.length) {
-            // let rate = 1 + (comboScore * 0.01);
-            // console.log(rate);
-            // musicAudio.rate(rate);
-            playComboSound(soundIndex);
-            // comboSounds[soundIndex].play();
-        }
-    }
-
-    document.getElementById("uiComboScore").innerHTML = comboScore;
-    document.getElementById("uiTotalScore").innerHTML = totalScore;
-    document.getElementById("uiScoreModifier").innerHTML = "x" + scoreModifier;
-
-    if (!isGameOver && !isPaused) {
-        checkCollisions();
-        updatePhysics(deltaTime);
-    }
-
-    for (let platform of breakingPlatforms) {
-
-        let mesh = platform.userData.platformMesh;
-        let sides = mesh.userData.sides;
-
-        let opacityChange = deltaTime * 3;
-        mesh.material.opacity -= opacityChange;
-        sides.material.opacity -= opacityChange;
-
-        if (mesh.material.opacity <= 0) {
-
-            mesh.visible = false;
-            let index = breakingPlatforms.indexOf(platform);
-            breakingPlatforms.splice(index, 1);
-        }
-    }
-
-    // Move camera to follow ball
-    const cameraDistanceFromBall = 5;
-
-    if (camera.position.y - cameraDistanceFromBall > ball.position.y) {
-        camera.position.y = ball.position.y + cameraDistanceFromBall;
-    }
-    // const triggerFollowDistance = 4;
-
-    // if (!useOrbitControls && camera.position.y - ball.position.y >= triggerFollowDistance) {
-
-    //     camera.position.y = ball.position.y
-    //     // const velocity = ballBody.getLinearVelocity().y();
-    //     // camera.position.y += (deltaTime * velocity) - 1;
-
-    //     // cmaer
-    //     // console.log(camera.position.y - ball.position.y);
-    //     // camera.position.y -= 1;//+= deltaTime * velocity * 0.5;
-    //     // camera.lookAt(ball.position);
-    // }
-
-    renderer.render(scene, camera);
-}
-
-function updatePhysics(deltaTime) {
-
-    // Step world
-    physicsWorld.stepSimulation(deltaTime * 2, 10);
-
-    // Update rigid bodies
-    for (let i = 0, il = rigidBodies.length; i < il; i ++) {
-
-        const objThree = rigidBodies[i];
-        const objPhys = objThree.userData.physicsBody;
-        const motion = objPhys.getMotionState();
-
-        if (motion) {
-            motion.getWorldTransform(transform);
-            const p = transform.getOrigin();
-            const q = transform.getRotation();
-            objThree.position.set(p.x(), p.y(), p.z());
-            objThree.quaternion.set(q.x(), q.y(), q.z(), q.w());
-        }
-    }
-}
-
-window.addEventListener('resize', function () {
-
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}, false);
-
-
-window.addEventListener('pointerdown', function(event) {
-
-    if (isGameOver || isPaused) {
-        return;
-    }
-
-    event.preventDefault();
-
-    pointerDown = true;
-    mouseX = event.clientX;
-    mouseY = event.clientY;
-
-    return false;
-});
-
-window.addEventListener('pointerup', function(event) {
-
-    if (isGameOver || isPaused) {
-        return;
-    }
-
-    event.preventDefault();
-
-    pointerDown = false;
-    // console.log(mouseX + " " + mouseY);
-
-    return false;
-});
-
-window.addEventListener('pointermove', function(event) {
-
-    if (!pointerDown || isGameOver || isPaused) {
-        return;
-    }
-
-    event.preventDefault();
-
-    let deltaX = event.clientX - mouseX;
-    let deltaY = event.clientY - mouseY;
-    mouseX = event.clientX;
-    mouseY = event.clientY;
-
-    platformGroup.rotation.y += deltaX / 20;
-    // console.log(mouseX + " " + mouseY);
-
-    return false;
-});
