@@ -48,6 +48,7 @@ body {
     right: 50%;
     top: 30px;
     font-size: 48px;
+    text-align: center;
 }
 .uiScoreHeading {
     font-size: 32px;
@@ -57,7 +58,13 @@ body {
 .uiScore {
     display: block;
     margin-bottom: 50px;
-    text-align: right;
+    text-align: center;
+    font-size:60px;
+    font-weight: bold;
+    color: black;
+    -webkit-text-fill-color: white; /* Will override color (regardless of order) */
+    -webkit-text-stroke-width: 3px;
+    -webkit-text-stroke-color: black;
 }
 #uiLevelContainer {
     display: block;

@@ -252,43 +252,88 @@ function setupLights(scene) {
     scene.add(lights[2]);
 }
 
+let comboAudio = null;
+
 function setupAudio() {
 
     comboSounds = [
-        new Audio('/static/audio/combo-01.wav'),
-        new Audio('/static/audio/combo-02.wav'),
-        new Audio('/static/audio/combo-03.wav'),
-        new Audio('/static/audio/combo-04.wav'),
-        new Audio('/static/audio/combo-05.wav'),
-        new Audio('/static/audio/combo-06.wav'),
-        new Audio('/static/audio/combo-07.wav'),
-        new Audio('/static/audio/combo-08.wav'),
-        new Audio('/static/audio/combo-09.wav'),
-        new Audio('/static/audio/combo-10.wav'),
-        new Audio('/static/audio/combo-11.wav'),
-        new Audio('/static/audio/combo-12.wav'),
-        new Audio('/static/audio/combo-13.wav'),
-        new Audio('/static/audio/combo-14.wav'),
-        new Audio('/static/audio/combo-15.wav'),
-        new Audio('/static/audio/combo-16.wav'),
-        new Audio('/static/audio/combo-17.wav'),
-        new Audio('/static/audio/combo-18.wav'),
+        new Howl({ src: ['/static/audio/combo-01.wav'] }),
+        new Howl({ src: ['/static/audio/combo-02.wav'] }),
+        new Howl({ src: ['/static/audio/combo-03.wav'] }),
+        new Howl({ src: ['/static/audio/combo-04.wav'] }),
+        new Howl({ src: ['/static/audio/combo-05.wav'] }),
+        new Howl({ src: ['/static/audio/combo-06.wav'] }),
+        new Howl({ src: ['/static/audio/combo-07.wav'] }),
+        new Howl({ src: ['/static/audio/combo-08.wav'] }),
+        new Howl({ src: ['/static/audio/combo-09.wav'] }),
+        new Howl({ src: ['/static/audio/combo-10.wav'] }),
+        new Howl({ src: ['/static/audio/combo-11.wav'] }),
+        new Howl({ src: ['/static/audio/combo-12.wav'] }),
+        new Howl({ src: ['/static/audio/combo-13.wav'] }),
+        new Howl({ src: ['/static/audio/combo-14.wav'] }),
+        new Howl({ src: ['/static/audio/combo-15.wav'] }),
+        new Howl({ src: ['/static/audio/combo-16.wav'] }),
+        new Howl({ src: ['/static/audio/combo-17.wav'] }),
+        new Howl({ src: ['/static/audio/combo-18.wav'] }),
     ];
+
+    // comboSounds = [
+    //     new Audio('/static/audio/combo-01.wav'),
+    //     new Audio('/static/audio/combo-02.wav'),
+    //     new Audio('/static/audio/combo-03.wav'),
+    //     new Audio('/static/audio/combo-04.wav'),
+    //     new Audio('/static/audio/combo-05.wav'),
+    //     new Audio('/static/audio/combo-06.wav'),
+    //     new Audio('/static/audio/combo-07.wav'),
+    //     new Audio('/static/audio/combo-08.wav'),
+    //     new Audio('/static/audio/combo-09.wav'),
+    //     new Audio('/static/audio/combo-10.wav'),
+    //     new Audio('/static/audio/combo-11.wav'),
+    //     new Audio('/static/audio/combo-12.wav'),
+    //     new Audio('/static/audio/combo-13.wav'),
+    //     new Audio('/static/audio/combo-14.wav'),
+    //     new Audio('/static/audio/combo-15.wav'),
+    //     new Audio('/static/audio/combo-16.wav'),
+    //     new Audio('/static/audio/combo-17.wav'),
+    //     new Audio('/static/audio/combo-18.wav'),
+    // ];
+
+    // comboAudio = new Howl({
+    //     src: ["/static/audio/combo.wav"],
+    //     sprite: {
+    //         combo01: [0, 500],
+    //         combo02: [750, 1000],
+    //         combo03: [1500, 1000],
+    //     }
+    // });
+    // comboAudio.play('combo03');
+    // comboAudio.preload = "auto";
 }
 
 function playComboSound(soundIndex) {
+
+    // comboAudio.pause();
+    // comboAudio.currentTime = soundIndex * 0.375;
+    // comboAudio.play();
+
+    let toPlay = null;
 
     for (let i = 0; i < comboSounds.length; i++) {
 
         const audio = comboSounds[i];
 
         if (soundIndex === i) {
-            audio.play();
+            toPlay = audio;
+            // let id = audio.play();
+            // playingIds.push(id);
         } else {
-            audio.pause();
-            audio.currentTime = 0;
+            audio.mute();
+            // audio.pause();
+            // audio.currentTime = 0;
         }
     }
+
+    toPlay.play();
 }
 
 function setupLevel(scene) {
@@ -911,8 +956,10 @@ function render() {
     }
 
     // Move camera to follow ball
-    if (camera.position.y > ball.position.y) {
-        camera.position.y = ball.position.y + 5;
+    const cameraDistanceFromBall = 5;
+
+    if (camera.position.y - cameraDistanceFromBall > ball.position.y) {
+        camera.position.y = ball.position.y + cameraDistanceFromBall;
     }
     // const triggerFollowDistance = 4;
 
@@ -962,19 +1009,45 @@ window.addEventListener('resize', function () {
 }, false);
 
 
-window.addEventListener('pointerdown', function(event) {
+// window.addEventListener('pointerdown', function(event) {
+
+//     pointerDown = true;
+//     mouseX = event.clientX;
+//     mouseY = event.clientY;
+// });
+
+// window.addEventListener('pointerup', function(event) {
+
+//     pointerDown = false;
+// });
+
+// window.addEventListener('pointermove', function(event) {
+
+//     if (!pointerDown || isGameOver) {
+//         return;
+//     }
+
+//     let deltaX = event.clientX - mouseX;
+//     let deltaY = event.clientY - mouseY;
+//     mouseX = event.clientX;
+//     mouseY = event.clientY;
+
+//     platformGroup.rotation.y += deltaX / 20;
+// });
+
+window.addEventListener('touchstart', function(event) {
 
     pointerDown = true;
     mouseX = event.clientX;
     mouseY = event.clientY;
 });
 
-window.addEventListener('pointerup', function(event) {
+window.addEventListener('touchend', function(event) {
 
     pointerDown = false;
 });
 
-window.addEventListener('pointermove', function(event) {
+window.addEventListener('touchmove', function(event) {
 
     if (!pointerDown || isGameOver) {
         return;
@@ -994,12 +1067,14 @@ window.addEventListener('pointermove', function(event) {
 //     switch ( event.keyCode ) {
 //         // D
 //         case 68:
-//             camera.position.y += 10;
+//             comboAudio.play('combo02');
+//             // camera.position.y += 10;
 //             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,1,0));
 //             break;
 //         // A
 //         case 65:
-//             camera.position.y -= 10;
+//             comboAudio.play('combo01');
+//             // camera.position.y -= 10;
 //             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,-1,0));
 //             // arm.userData.physicsBody.setAngularVelocity(new Ammo.btVector3(0,0,0));
 //             break;

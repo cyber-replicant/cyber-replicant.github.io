@@ -15,21 +15,22 @@
   <body style="overflow:hidden">
 
     <script src="js/lib/ammo.wasm.js"></script>
+    <script src="js/lib/howler.min.js"></script>
     <script type="module" src="js/lib/three.min.js"></script>
 
     <script type="module" src="js/main.js"></script>
 
     <div id="uiScoreContainer">
-      <div class="uiScore">
+      <div class="uiScore" style="display:none">
         <span class="uiScoreHeading">TOTAL</span>
         <span id="uiTotalScore">0</span>
       </div>
       <div class="uiScore">
-        <span class="uiScoreHeading">COMBO</span>
+        <!-- <span class="uiScoreHeading">COMBO</span> -->
         <span id="uiComboScore">0</span>
       </div>
       <div class="uiScore">
-        <span class="uiScoreHeading">MOD</span>
+        <!-- <span class="uiScoreHeading">MOD</span> -->
         <span id="uiScoreModifier">x1</span>
       </div>
     </div>
