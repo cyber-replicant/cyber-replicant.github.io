@@ -1040,31 +1040,31 @@ window.addEventListener('pointermove', function(event) {
     platformGroup.rotation.y += deltaX / 20;
 });
 
-window.addEventListener('touchstart', function(event) {
+// window.addEventListener('touchstart', function(event) {
 
-    pointerDown = true;
-    mouseX = event.clientX;
-    mouseY = event.clientY;
-});
+//     pointerDown = true;
+//     mouseX = event.clientX;
+//     mouseY = event.clientY;
+// });
 
-window.addEventListener('touchend', function(event) {
+// window.addEventListener('touchend', function(event) {
 
-    pointerDown = false;
-});
+//     pointerDown = false;
+// });
 
-window.addEventListener('touchmove', function(event) {
+// window.addEventListener('touchmove', function(event) {
 
-    if (!pointerDown || isGameOver) {
-        return;
-    }
+//     if (!pointerDown || isGameOver) {
+//         return;
+//     }
 
-    let deltaX = event.clientX - mouseX;
-    let deltaY = event.clientY - mouseY;
-    mouseX = event.clientX;
-    mouseY = event.clientY;
+//     let deltaX = event.clientX - mouseX;
+//     let deltaY = event.clientY - mouseY;
+//     mouseX = event.clientX;
+//     mouseY = event.clientY;
 
-    platformGroup.rotation.y += deltaX / 20;
-});
+//     platformGroup.rotation.y += deltaX / 20;
+// });
 
 
 // window.addEventListener( 'keydown', function ( event ) {
