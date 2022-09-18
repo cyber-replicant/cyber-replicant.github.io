@@ -1019,11 +1019,13 @@ window.addEventListener('pointerdown', function(event) {
     pointerDown = true;
     mouseX = event.clientX;
     mouseY = event.clientY;
+    console.log(mouseX + " " + mouseY);
 });
 
 window.addEventListener('pointerup', function(event) {
 
     pointerDown = false;
+    console.log(mouseX + " " + mouseY);
 });
 
 window.addEventListener('pointermove', function(event) {
@@ -1038,6 +1040,7 @@ window.addEventListener('pointermove', function(event) {
     mouseY = event.clientY;
 
     platformGroup.rotation.y += deltaX / 20;
+    console.log(mouseX + " " + mouseY);
 });
 
 // window.addEventListener('touchstart', function(event) {
