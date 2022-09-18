@@ -55,7 +55,7 @@ const ballMass = 50;
 const bounceVelocity = 12;
 
 // Audio
-let musicAudio, bounceAudio, gameOverAudio, gameWinAudio, doubleComboAudio, bounceSameColorAudio, bounceHighVelocity;
+let musicAudio, bounceAudio, gameOverAudio, gameWinAudio, doubleComboAudio, bounceSameColorAudio, bounceHighVelocityAudio;
 
 
 const platformColors = [
@@ -932,7 +932,10 @@ function processPlatformCollision(platform) {
             isGameOver = true;
             breakPlatform = false;
         } else {
-            bounceBall();
+            // bounceBall();
+            platform.userData.platformMesh.material = ball.material.clone();
+            bounceHighVelocityAudio.play();
+            ballBody.setLinearVelocity(new Ammo.btVector3(0, bounceVelocity, 0));
         }
     }
     // Bounce platforms
@@ -958,7 +961,7 @@ function processPlatformCollision(platform) {
             lastScoreReset = platform.position.y;
             scoreModifier = 1;
             bounceBall();
-            breakPlatform = false;
+            // breakPlatform = false;
         }
         // If the color matches
         else {
@@ -969,25 +972,36 @@ function processPlatformCollision(platform) {
         }
     }
 
+    // if (isHighVelocity) {
+    //     for (let moo of platforms) {
+    //         if (moo.position.y === platform.position.y) {
+    //             destroyPlatform(moo);
+    //         }
+    //     }
+    // }
+
     if (breakPlatform) {
-        // Remove the platform chunk
-        // platform.userData.platformMesh.visible = false;
-        let index = platforms.indexOf(platform);
-        platforms.splice(index, 1);
-
-        let mesh = platform.userData.platformMesh;
-        mesh.material.transparent = true;
-        mesh.userData.sides.material.transparent = true;
-        breakingPlatforms.push(platform);
-
-        // const shape = new Ammo.btSphereShape(10);
-        // const body = createRigidBody(mesh, shape, 10);
-        // body.setLinearVelocity(new Ammo.btVector3(-4, -10, 0));
-
-        // setTimeout(() => {
-        //     physicsWorld.removeRigidBody(body);
-        // }, 500);
+        destroyPlatform(platform);
     }
+}
+
+function destroyPlatform(platform) {
+
+    let index = platforms.indexOf(platform);
+    platforms.splice(index, 1);
+
+    let mesh = platform.userData.platformMesh;
+    mesh.material.transparent = true;
+    mesh.userData.sides.material.transparent = true;
+    breakingPlatforms.push(platform);
+
+    // const shape = new Ammo.btSphereShape(10);
+    // const body = createRigidBody(mesh, shape, 10);
+    // body.setLinearVelocity(new Ammo.btVector3(-4, -10, 0));
+
+    // setTimeout(() => {
+    //     physicsWorld.removeRigidBody(body);
+    // }, 500);
 }
 
 function animate() {
@@ -1100,23 +1114,40 @@ window.addEventListener('resize', function () {
 
 window.addEventListener('pointerdown', function(event) {
 
+    if (isGameOver || isPaused) {
+        return;
+    }
+
+    event.preventDefault();
+
     pointerDown = true;
     mouseX = event.clientX;
     mouseY = event.clientY;
-    console.log(mouseX + " " + mouseY);
+
+    return false;
 });
 
 window.addEventListener('pointerup', function(event) {
 
+    if (isGameOver || isPaused) {
+        return;
+    }
+
+    event.preventDefault();
+
     pointerDown = false;
-    console.log(mouseX + " " + mouseY);
+    // console.log(mouseX + " " + mouseY);
+
+    return false;
 });
 
 window.addEventListener('pointermove', function(event) {
 
-    if (!pointerDown || isGameOver) {
+    if (!pointerDown || isGameOver || isPaused) {
         return;
     }
+
+    event.preventDefault();
 
     let deltaX = event.clientX - mouseX;
     let deltaY = event.clientY - mouseY;
@@ -1124,5 +1155,7 @@ window.addEventListener('pointermove', function(event) {
     mouseY = event.clientY;
 
     platformGroup.rotation.y += deltaX / 20;
-    console.log(mouseX + " " + mouseY);
+    // console.log(mouseX + " " + mouseY);
+
+    return false;
 });
