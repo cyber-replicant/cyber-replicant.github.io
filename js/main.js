@@ -428,7 +428,8 @@ window.addEventListener('resize', function() {
 }, false);
 
 
-window.addEventListener("mousedown", function(event) {
+// window.addEventListener("mousedown", function(event) {
+window.addEventListener("pointerdown", function(event) {
 
     if (isGameOver || isPaused) {
         return;
@@ -443,7 +444,8 @@ window.addEventListener("mousedown", function(event) {
     return false;
 });
 
-window.addEventListener("mouseup", function(event) {
+// window.addEventListener("mouseup", function(event) {
+window.addEventListener("pointerup", function(event) {
 
     if (isGameOver || isPaused) {
         return;
@@ -454,10 +456,16 @@ window.addEventListener("mouseup", function(event) {
     return false;
 });
 
-window.addEventListener("mousemove", function(event) {
+// window.addEventListener("mousemove", function(event) {
+window.addEventListener("pointermove", function(event) {
 
     if (!pointerDown || isGameOver || isPaused) {
         return;
+    }
+
+    console.log(event.target);
+    if (event.target.hasPointerCapture !== undefined && event.target.hasPointerCapture(event.pointerId)) {
+        event.target.releasePointerCapture(event.pointerId);
     }
 
     event.preventDefault();
@@ -472,21 +480,21 @@ window.addEventListener("mousemove", function(event) {
     return false;
 });
 
-window.addEventListener("touchmove", function(event) {
+// window.addEventListener("touchmove", function(event) {
 
-    // This isn't a fun browser!
-    // if ( ! rotation) {
-    //      rotation = Math.atan2(event.touches[0].pageX - event.touches[1].pageX,
-    //            event.touches[0].pageX - event.touches[1].pageX) * 180 / Math.PI;
-    // }
+//     // This isn't a fun browser!
+//     // if ( ! rotation) {
+//     //      rotation = Math.atan2(event.touches[0].pageX - event.touches[1].pageX,
+//     //            event.touches[0].pageX - event.touches[1].pageX) * 180 / Math.PI;
+//     // }
 
-    let rotation = event.touches[0].pageX - event.touches[1].pageX;
-    console.log(rotation);
-    platformGroup.rotation.y += rotation;
+//     let rotation = event.touches[0].pageX - event.touches[1].pageX;
+//     console.log(rotation);
+//     platformGroup.rotation.y += rotation;
 
-    // Take into account vendor prefixes, which I haven't done.
-    // this.style.transform = "rotate(" + rotation + "deg)":
-});
+//     // Take into account vendor prefixes, which I haven't done.
+//     // this.style.transform = "rotate(" + rotation + "deg)":
+// });
 
 
 // ----------------------------------------------------------------------------------------------------------------
