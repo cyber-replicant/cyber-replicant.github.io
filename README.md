@@ -4,6 +4,14 @@ Helix Jump code audition game
 
 The game is not called cyber replicant, I just used one of my Git accounts to host it easily via Github Pages :). Please note the contributors listed on Github are all different accounts of mine, I was working on multiple computers so the Git authors are a bit of a mess - sorry about that.
 
+Game rules:
+
+- All blocks are destroyed as soon as you land on them, making the game a bit more fast paced
+- If you land on a white block, the score modifier is incremented by 1 (score = combo x modifier)
+- If you land on a black block, you lose the game
+- If you land on the same color block, you retain your combo and modifier
+- If you land on a different color block, you become that color and your combo and modifier are resolved
+
 
 ## Running the project
 
