@@ -12,6 +12,12 @@ Game rules:
 - If you land on the same color block, you retain your combo and modifier
 - If you land on a different color block, you become that color and your combo and modifier are resolved
 
+The Git repository is here:
+
+```
+https://github.com/cyber-replicant/cyber-replicant.github.io
+```
+
 
 ## Running the project
 
@@ -30,6 +36,7 @@ The project is running live here:
 ```
 https://cyber-replicant.github.io
 ```
+
 
 ## Dependencies
 
