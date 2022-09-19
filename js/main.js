@@ -463,7 +463,6 @@ window.addEventListener("pointermove", function(event) {
         return;
     }
 
-    console.log(event.target);
     if (event.target.hasPointerCapture !== undefined && event.target.hasPointerCapture(event.pointerId)) {
         event.target.releasePointerCapture(event.pointerId);
     }
@@ -487,6 +486,10 @@ window.addEventListener("pointermove", function(event) {
 //     //      rotation = Math.atan2(event.touches[0].pageX - event.touches[1].pageX,
 //     //            event.touches[0].pageX - event.touches[1].pageX) * 180 / Math.PI;
 //     // }
+
+//     if (event.target.hasPointerCapture !== undefined && event.target.hasPointerCapture(event.pointerId)) {
+//         event.target.releasePointerCapture(event.pointerId);
+//     }
 
 //     let rotation = event.touches[0].pageX - event.touches[1].pageX;
 //     console.log(rotation);
