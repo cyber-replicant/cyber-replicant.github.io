@@ -473,7 +473,6 @@ window.addEventListener("mousemove", function(event) {
 });
 
 window.addEventListener("touchmove", function(event) {
-    var rotation = event.rotation;
 
     // This isn't a fun browser!
     // if ( ! rotation) {
