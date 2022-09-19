@@ -416,7 +416,7 @@ function playComboSound(soundIndex) {
 
 
 // ----------------------------------------------------------------------------------------------------------------
-// Input handling
+// Input / event handling
 // ----------------------------------------------------------------------------------------------------------------
 
 window.addEventListener('resize', function() {
@@ -428,7 +428,7 @@ window.addEventListener('resize', function() {
 }, false);
 
 
-window.addEventListener('pointerdown', function(event) {
+window.addEventListener("mousedown", function(event) {
 
     if (isGameOver || isPaused) {
         return;
@@ -443,7 +443,7 @@ window.addEventListener('pointerdown', function(event) {
     return false;
 });
 
-window.addEventListener('pointerup', function(event) {
+window.addEventListener("mouseup", function(event) {
 
     if (isGameOver || isPaused) {
         return;
@@ -454,7 +454,7 @@ window.addEventListener('pointerup', function(event) {
     return false;
 });
 
-window.addEventListener('pointermove', function(event) {
+window.addEventListener("mousemove", function(event) {
 
     if (!pointerDown || isGameOver || isPaused) {
         return;
@@ -463,7 +463,6 @@ window.addEventListener('pointermove', function(event) {
     event.preventDefault();
 
     let deltaX = event.clientX - mouseX;
-    let deltaY = event.clientY - mouseY;
     mouseX = event.clientX;
     mouseY = event.clientY;
 
@@ -471,6 +470,23 @@ window.addEventListener('pointermove', function(event) {
     // console.log(mouseX + " " + mouseY);
 
     return false;
+});
+
+window.addEventListener("touchmove", function(event) {
+    var rotation = event.rotation;
+
+    // This isn't a fun browser!
+    // if ( ! rotation) {
+    //      rotation = Math.atan2(event.touches[0].pageX - event.touches[1].pageX,
+    //            event.touches[0].pageX - event.touches[1].pageX) * 180 / Math.PI;
+    // }
+
+    let rotation = event.touches[0].pageX - event.touches[1].pageX;
+    console.log(rotation);
+    platformGroup.rotation.y += rotation;
+
+    // Take into account vendor prefixes, which I haven't done.
+    // this.style.transform = "rotate(" + rotation + "deg)":
 });
 
 
