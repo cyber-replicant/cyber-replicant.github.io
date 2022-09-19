@@ -201,9 +201,13 @@ function render() {
         mesh.material.opacity -= opacityChange;
         sides.material.opacity -= opacityChange;
 
+        mesh.position.x += 1;
+        mesh.position.y -= 1;
+
         if (mesh.material.opacity <= 0) {
 
             mesh.visible = false;
+            platformGroup.remove(mesh);
             let index = breakingPlatforms.indexOf(platform);
             breakingPlatforms.splice(index, 1);
         }
@@ -681,7 +685,7 @@ function setupAudio() {
     });
     musicAudio.volume(musicVolume);
 
-    gameOverAudio = new Howl({ src: ["/static/audio/gameOver.wav"] });
+    gameOverAudio = new Howl({ src: ["/static/audio/gameOver.wav"], volume: 2.0 });
     gameWinAudio = new Howl({ src: ["/static/audio/gameWin.wav"] });
     doubleComboAudio = new Howl({ src: ["/static/audio/doubleCombo.wav"] });
 
